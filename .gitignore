@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+build/
+dist/
+*.spec
+banco/padaria.db
+banco/.config_seguro
+banco/.dispositivos
+banco/fila_nfce.json
+licenca.key
+logs/
+cupons/
+backups/
+*.ico
+.env

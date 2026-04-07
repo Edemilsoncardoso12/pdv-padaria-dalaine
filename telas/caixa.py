@@ -1,0 +1,894 @@
+"""telas/caixa.py — PDV Tema Branco + Consignação + Orçamento + Prazo + Peso + F6"""
+import customtkinter as ctk
+from tkinter import messagebox, simpledialog
+from datetime import datetime
+from tema import *
+from banco.database import (caixa_aberto, abrir_caixa, fechar_caixa,
+    buscar_produto_por_codigo, listar_produtos, registrar_venda)
+
+class TelaCaixa(ctk.CTkFrame):
+    def __init__(self, master):
+        super().__init__(master, fg_color=COR_FUNDO, corner_radius=0)
+        self.grid_columnconfigure(0, weight=3)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        self.itens=[]; self.caixa_id=None; self.desconto_global=0.0
+        self.cliente_venda=None; self.vendedor_atual="Operador"
+        self.modo_venda="NORMAL"; self.operador_logado=None
+        self._verificar_caixa(); self._build_header(); self._build_tabela()
+        self._build_painel_direito(); self._build_rodape(); self._bind_teclas()
+        # Pedir senha ao abrir o PDV
+        self.after(300, self._pedir_senha_operador)
+
+    def _pedir_senha_operador(self):
+        """Tela de senha para liberar o PDV — igual ao Eccus"""
+        import hashlib, base64
+        from banco.database import get_conn
+
+        win = ctk.CTkToplevel(self)
+        win.title("Identificação do Operador")
+        win.geometry("380x320")
+        win.configure(fg_color=COR_CARD)
+        win.grab_set()
+        win.resizable(False, False)
+        # Não permite fechar sem autenticar
+        win.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        ctk.CTkLabel(win, text="🔐  Identificação",
+                     font=FONTE_TITULO, text_color=COR_ACENTO).pack(pady=(24,4))
+        ctk.CTkLabel(win, text="Digite sua senha para iniciar a venda:",
+                     font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack(pady=(0,16))
+
+        ctk.CTkLabel(win, text="Usuário:",
+                     font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack(anchor="w", padx=32)
+        ent_user = ctk.CTkEntry(win, font=FONTE_LABEL, height=38,
+                                placeholder_text="login...",
+                                fg_color=COR_CARD2, border_color=COR_BORDA2,
+                                text_color=COR_TEXTO)
+        ent_user.pack(fill="x", padx=32, pady=(2,10))
+
+        ctk.CTkLabel(win, text="Senha:",
+                     font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack(anchor="w", padx=32)
+        ent_senha = ctk.CTkEntry(win, font=FONTE_LABEL, height=38,
+                                 show="●",
+                                 placeholder_text="senha...",
+                                 fg_color=COR_CARD2, border_color=COR_BORDA2,
+                                 text_color=COR_TEXTO)
+        ent_senha.pack(fill="x", padx=32, pady=(2,4))
+        ent_user.focus_set()
+
+        lbl_erro = ctk.CTkLabel(win, text="",
+                                font=FONTE_SMALL, text_color=COR_PERIGO)
+        lbl_erro.pack(pady=4)
+
+        def confirmar():
+            import hashlib, base64
+            login = ent_user.get().strip()
+            senha = ent_senha.get().strip()
+            if not login or not senha:
+                lbl_erro.configure(text="Preencha usuário e senha.")
+                return
+            # Hash scrypt
+            salt = b"pdv_padaria_laine_2025_fixed"
+            h = hashlib.scrypt(senha.encode(), salt=salt, n=16384, r=8, p=1, dklen=32)
+            hash_novo = "scrypt:" + base64.b64encode(h).decode()
+            # Hash legado SHA-256
+            salt_leg = "pdv_padaria_laine_2025"
+            hash_leg = hashlib.sha256(f"{salt_leg}{senha}".encode()).hexdigest()
+
+            conn = get_conn()
+            user = conn.execute(
+                "SELECT * FROM usuarios WHERE login=? AND (senha=? OR senha=?) AND ativo=1",
+                (login, hash_novo, hash_leg)).fetchone()
+            conn.close()
+
+            if user:
+                self.operador_logado = dict(user)
+                self.vendedor_atual  = user["nome"]
+                if hasattr(self, "lbl_vendedor"):
+                    self.lbl_vendedor.configure(
+                        text=f"Operador: {user['nome']}")
+                win.destroy()
+                self.ent_busca.focus_set()
+            else:
+                lbl_erro.configure(text="❌ Usuário ou senha incorretos!")
+                ent_senha.delete(0, "end")
+                ent_senha.focus_set()
+
+        ent_senha.bind("<Return>", lambda e: confirmar())
+        ent_user.bind("<Return>",  lambda e: ent_senha.focus_set())
+
+        ctk.CTkButton(win, text="✅  Entrar no Caixa",
+                      font=("Georgia",13,"bold"),
+                      fg_color=COR_ACENTO, hover_color=COR_ACENTO2,
+                      text_color="white", height=46, corner_radius=10,
+                      command=confirmar).pack(fill="x", padx=32, pady=8)
+
+    def _verificar_caixa(self):
+        cx=caixa_aberto()
+        if cx: self.caixa_id=cx["id"]
+        else: self._dialogo_abrir_caixa()
+
+    def _dialogo_abrir_caixa(self):
+        win=ctk.CTkToplevel(self); win.title("Abrir Caixa")
+        win.geometry("380x240"); win.configure(fg_color=COR_CARD); win.grab_set()
+        ctk.CTkLabel(win,text="💰  Abrir Caixa",font=FONTE_TITULO,text_color=COR_ACENTO).pack(pady=(24,8))
+        ctk.CTkLabel(win,text="Valor inicial (R$):",font=FONTE_LABEL,text_color=COR_TEXTO).pack()
+        ent=ctk.CTkEntry(win,font=FONTE_LABEL,width=180,justify="center",fg_color=COR_CARD2,border_color=COR_BORDA2,text_color=COR_TEXTO)
+        ent.insert(0,"0,00"); ent.pack(pady=8)
+        def confirmar():
+            try: v=float(ent.get().replace(",","."))
+            except: v=0.0
+            abrir_caixa(v); cx=caixa_aberto()
+            if cx: self.caixa_id=cx["id"]
+            win.destroy()
+        ctk.CTkButton(win,text="Abrir Caixa",font=FONTE_BTN,fg_color=COR_SUCESSO,hover_color=COR_SUCESSO2,text_color="white",command=confirmar).pack(pady=12)
+
+    def _build_header(self):
+        hdr=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=0,border_width=1,border_color=COR_BORDA,height=80)
+        hdr.grid(row=0,column=0,columnspan=2,sticky="ew"); hdr.grid_propagate(False)
+        hdr.grid_columnconfigure(1,weight=1)
+        esq=ctk.CTkFrame(hdr,fg_color="transparent"); esq.grid(row=0,column=0,padx=20,pady=12,sticky="w")
+        ctk.CTkLabel(esq,text="🛒  PDV — Ponto de Venda",font=FONTE_TITULO,text_color=COR_ACENTO).pack(anchor="w")
+        self.lbl_modo=ctk.CTkLabel(esq,text="● Venda Normal",font=FONTE_SMALL,text_color=COR_SUCESSO); self.lbl_modo.pack(anchor="w")
+        bf=ctk.CTkFrame(hdr,fg_color="transparent"); bf.grid(row=0,column=1,padx=16,sticky="e")
+        ctk.CTkLabel(bf,text="Código/Nome:",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack(side="left",padx=(0,6))
+        from telas.busca_produto import BuscaProdutoWidget
+        self._busca_widget = BuscaProdutoWidget(bf, self._adicionar_item, width=420)
+        self.ent_busca = self._busca_widget.entry
+        self.ent_busca.pack(side="left")
+        ctk.CTkLabel(bf,text="Qtde:",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack(side="left",padx=(10,4))
+        self.ent_qtde=ctk.CTkEntry(bf,width=60,font=FONTE_LABEL,justify="center",fg_color=COR_CARD2,border_color=COR_BORDA2,text_color=COR_TEXTO)
+        self.ent_qtde.insert(0,"1"); self.ent_qtde.pack(side="left")
+        ctk.CTkLabel(bf,text="Peso(kg):",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack(side="left",padx=(10,4))
+        self.ent_peso=ctk.CTkEntry(bf,width=70,font=FONTE_LABEL,justify="center",placeholder_text="0.000",fg_color=COR_CARD2,border_color=COR_BORDA2,text_color=COR_TEXTO)
+        self.ent_peso.pack(side="left")
+        ctk.CTkButton(bf,text="➕ Add",width=80,font=FONTE_BTN,fg_color=COR_ACENTO,hover_color=COR_ACENTO2,text_color="white",command=self._buscar_produto).pack(side="left",padx=(8,0))
+        ctk.CTkButton(bf,text="🔍",width=40,font=FONTE_BTN,fg_color=COR_CARD2,hover_color=COR_BORDA,text_color=COR_TEXTO,border_width=1,border_color=COR_BORDA2,command=self._abrir_pesquisa).pack(side="left",padx=(4,0))
+
+    def _build_tabela(self):
+        frame=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=12,border_width=1,border_color=COR_BORDA)
+        frame.grid(row=1,column=0,padx=(16,8),pady=12,sticky="nsew")
+        frame.grid_rowconfigure(1,weight=1); frame.grid_columnconfigure(0,weight=1)
+        cols=["#","Descrição","Cód.Barras","Qtde","Unit.","Desc","Total",""]
+        pesos=[1,5,3,1,2,2,2,1]
+        cab=ctk.CTkFrame(frame,fg_color=COR_ACENTO_LIGHT,corner_radius=8,height=48)
+        cab.grid(row=0,column=0,sticky="ew",padx=8,pady=(8,0)); cab.grid_propagate(False)
+        for i,(col,peso) in enumerate(zip(cols,pesos)):
+            cab.grid_columnconfigure(i,weight=peso)
+            ctk.CTkLabel(cab,text=col,font=("Courier New",13,"bold"),text_color=COR_ACENTO).grid(row=0,column=i,padx=8,pady=8,sticky="w")
+        self.scroll_itens=ctk.CTkScrollableFrame(frame,fg_color="transparent")
+        self.scroll_itens.grid(row=1,column=0,sticky="nsew",padx=8,pady=8)
+        self.scroll_itens.grid_columnconfigure(0,weight=1)
+        self._linha_vazia()
+
+    def _linha_vazia(self):
+        ctk.CTkLabel(self.scroll_itens,text="Nenhum item adicionado.\nEscaneie ou pesquise um produto.",font=FONTE_LABEL,text_color=COR_TEXTO_SUB,justify="center").grid(row=0,column=0,pady=60)
+
+    def _redesenhar_itens(self):
+        for w in self.scroll_itens.winfo_children(): w.destroy()
+        if not self.itens: self._linha_vazia(); self._atualizar_totais(); return
+        pesos=[1,6,3,2,2,2,2,2,1]
+        for idx,item in enumerate(self.itens):
+            cor_bg=COR_LINHA_PAR if idx%2==0 else COR_CARD
+            row_f=ctk.CTkFrame(self.scroll_itens,fg_color=cor_bg,corner_radius=6,height=52)
+            row_f.grid(row=idx,column=0,sticky="ew",pady=1); row_f.grid_propagate(False)
+            for i,p in enumerate(pesos): row_f.grid_columnconfigure(i,weight=p)
+            peso_txt=f'{item.get("peso",0):.3f}' if item.get("peso",0)>0 else "—"
+            dados=[str(idx+1),item["nome_produto"][:35],item["codigo_barras"] or "",
+                   f'{item["quantidade"]:.3f}'.rstrip("0").rstrip("."),peso_txt,
+                   f'R$ {item["preco_unitario"]:.2f}',f'R$ {item.get("desconto",0):.2f}',
+                   f'R$ {item["total_item"]:.2f}']
+            cores=[COR_TEXTO_SUB,COR_TEXTO,COR_TEXTO_SUB,COR_ACENTO,COR_TEXTO_SUB,COR_TEXTO,COR_PERIGO,COR_SUCESSO]
+            for i,(val,cor) in enumerate(zip(dados,cores)):
+                ctk.CTkLabel(row_f,text=val,font=("Courier New",13,"bold"),text_color=cor).grid(row=0,column=i,padx=6,sticky="w")
+            i_cap=idx
+            ctk.CTkButton(row_f,text="✕",width=28,height=24,font=("Arial",10),fg_color=COR_PERIGO,hover_color=COR_PERIGO2,text_color="white",corner_radius=4,command=lambda i=i_cap:self._remover_item(i)).grid(row=0,column=8,padx=4)
+        self._atualizar_totais()
+
+    def _build_painel_direito(self):
+        painel=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=12,border_width=1,border_color=COR_BORDA)
+        painel.grid(row=1,column=1,padx=(8,16),pady=12,sticky="nsew"); painel.grid_columnconfigure(0,weight=1)
+        ctk.CTkLabel(painel,text="RESUMO DA VENDA",font=("Courier New",10,"bold"),text_color=COR_ACENTO).pack(pady=(20,4))
+        def linha_valor(label,var_attr,cor=COR_TEXTO):
+            f=ctk.CTkFrame(painel,fg_color="transparent"); f.pack(fill="x",padx=20,pady=2)
+            ctk.CTkLabel(f,text=label,font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack(side="left")
+            lbl=ctk.CTkLabel(f,text="R$ 0,00",font=FONTE_LABEL,text_color=cor); lbl.pack(side="right")
+            setattr(self,var_attr,lbl)
+        linha_valor("Subtotal:","lbl_subtotal"); linha_valor("Desconto:","lbl_desconto",COR_PERIGO)
+        ctk.CTkFrame(painel,height=1,fg_color=COR_BORDA).pack(fill="x",padx=20,pady=4)
+        self.lbl_total=ctk.CTkLabel(painel,text="R$ 0,00",font=FONTE_TOTAL,text_color=COR_ACENTO); self.lbl_total.pack(pady=(0,2))
+        ctk.CTkLabel(painel,text="TOTAL",font=("Courier New",10),text_color=COR_TEXTO_SUB).pack()
+        ctk.CTkFrame(painel,height=1,fg_color=COR_BORDA).pack(fill="x",padx=20,pady=4)
+        f=ctk.CTkFrame(painel,fg_color="transparent"); f.pack(fill="x",padx=20,pady=2)
+        ctk.CTkLabel(f,text="Itens:",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack(side="left")
+        self.lbl_qtde_itens=ctk.CTkLabel(f,text="0",font=FONTE_LABEL,text_color=COR_TEXTO); self.lbl_qtde_itens.pack(side="right")
+        self.lbl_cliente_venda=ctk.CTkLabel(painel,text="👤 Sem cliente",font=FONTE_SMALL,text_color=COR_TEXTO_SUB); self.lbl_cliente_venda.pack(pady=(2,0))
+        ctk.CTkFrame(painel,height=1,fg_color=COR_BORDA).pack(fill="x",padx=20,pady=4)
+        ctk.CTkLabel(painel,text="Modo:",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack()
+        self.cmb_modo=ctk.CTkComboBox(painel,values=["NORMAL","ORÇAMENTO","CONSIGNAÇÃO","PRAZO"],font=FONTE_SMALL,fg_color=COR_CARD2,border_color=COR_BORDA2,text_color=COR_TEXTO,command=self._mudar_modo)
+        self.cmb_modo.set("NORMAL"); self.cmb_modo.pack(fill="x",padx=16,pady=(2,4))
+        for txt,cor,hover,cmd in [
+            ("💳  RECEBER",   COR_SUCESSO, COR_SUCESSO2, self._receber),
+            ("🏷️  Desconto",  COR_AVISO,   "#D97706",    self._aplicar_desconto),
+            ("🗑️  Limpar",    COR_PERIGO,  COR_PERIGO2,  self._limpar_venda),
+        ]:
+            ctk.CTkButton(painel,text=txt,font=FONTE_BTN,fg_color=cor,hover_color=hover,text_color="white",height=38,corner_radius=8,command=cmd).pack(fill="x",padx=16,pady=2)
+
+        ctk.CTkFrame(painel,height=1,fg_color=COR_BORDA).pack(fill="x",padx=16,pady=4)
+
+        f_rod = ctk.CTkFrame(painel, fg_color="transparent")
+        f_rod.pack(fill="x", padx=16, pady=2)
+        f_rod.grid_columnconfigure((0,1), weight=1)
+        ctk.CTkButton(f_rod,text="💵 Sangria",font=FONTE_BTN_SM,
+            fg_color="#6B7280",hover_color="#4B5563",text_color="white",
+            height=34,corner_radius=8,
+            command=self._abrir_sangria).grid(row=0,column=0,padx=(0,3),sticky="ew")
+        ctk.CTkButton(f_rod,text="🔒 Fechar Cx",font=FONTE_BTN_SM,
+            fg_color="#374151",hover_color="#1F2937",text_color="white",
+            height=34,corner_radius=8,
+            command=self._fechar_caixa).grid(row=0,column=1,padx=(3,0),sticky="ew")
+
+    def _build_rodape(self):
+        rod=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=0,border_width=1,border_color=COR_BORDA,height=32)
+        rod.grid(row=2,column=0,columnspan=2,sticky="ew"); rod.grid_propagate(False); rod.grid_columnconfigure(2,weight=1)
+        self.lbl_status_cx=ctk.CTkLabel(rod,text=f"● Caixa #{self.caixa_id or '?'} — Aberto",font=FONTE_SMALL,text_color=COR_SUCESSO)
+        self.lbl_status_cx.grid(row=0,column=0,padx=16,pady=6,sticky="w")
+        self.lbl_vendedor=ctk.CTkLabel(rod,text=f"Vendedor: {self.vendedor_atual}",font=FONTE_SMALL,text_color=COR_TEXTO_SUB)
+        self.lbl_vendedor.grid(row=0,column=1,sticky="w",padx=8)
+        ctk.CTkLabel(rod,text="F2=Clientes  F3=Produtos  F6=Vendedor  F9=Receber  ESC=Cancelar",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).grid(row=0,column=2,sticky="e",padx=16)
+
+    def _bind_teclas(self):
+        root=self.winfo_toplevel()
+        root.bind("<F2>",lambda e:self._abrir_clientes())
+        root.bind("<F3>",lambda e:self._abrir_pesquisa())
+        root.bind("<F6>",lambda e:self._trocar_vendedor())
+        root.bind("<F9>",lambda e:self._receber())
+        def _esc_seguro(e):
+            # Só limpa venda se o PDV estiver em foco
+            try:
+                widget = self.focus_get()
+                if widget and str(self) in str(widget):
+                    self._limpar_venda()
+            except Exception:
+                pass
+        root.bind("<Escape>", _esc_seguro)
+        # Fechar dropdown ao trocar de tela
+        self.bind("<Destroy>", lambda e: self._fechar_busca())
+        self.ent_busca.focus_set()
+
+    def _fechar_busca(self):
+        try:
+            if hasattr(self, "_busca_widget"):
+                self._busca_widget._fechar()
+        except Exception:
+            pass
+
+    def _mudar_modo(self,modo):
+        self.modo_venda=modo
+        cores={"NORMAL":(COR_SUCESSO,"● Venda Normal"),"ORÇAMENTO":(COR_INFO,"● Orçamento"),"CONSIGNAÇÃO":(COR_AVISO,"● Consignação"),"PRAZO":("#8B5CF6","● Venda a Prazo")}
+        cor,txt=cores.get(modo,(COR_SUCESSO,f"● {modo}"))
+        self.lbl_modo.configure(text=txt,text_color=cor)
+
+    def _abrir_clientes(self):
+        import tkinter as tk
+        from telas.clientes import listar_clientes
+
+        win = ctk.CTkToplevel(self)
+        win.title("F2 — Clientes")
+        win.geometry("680x480")
+        win.configure(fg_color=COR_CARD)
+        win.grab_set()
+
+        ctk.CTkLabel(win, text="👥  Selecionar Cliente",
+                     font=FONTE_TITULO, text_color=COR_ACENTO).pack(pady=(16,4))
+        ctk.CTkLabel(win, text="↑↓ navegar  •  Enter selecionar  •  ESC fechar",
+                     font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack()
+
+        ent = ctk.CTkEntry(win, font=FONTE_LABEL, width=440,
+                           placeholder_text="Buscar cliente...",
+                           fg_color=COR_CARD2, border_color=COR_BORDA2,
+                           text_color=COR_TEXTO)
+        ent.pack(pady=6)
+
+        # Frame nativo para evitar conflito mouse/teclado
+        f_outer = tk.Frame(win, bg="#B45309")
+        f_outer.pack(fill="both", expand=True, padx=16, pady=8)
+        f_inner = tk.Frame(f_outer, bg="white")
+        f_inner.pack(fill="both", expand=True, padx=1, pady=1)
+
+        estado = {"idx": -1, "lista": [], "labels": []}
+
+        def popular(busca=""):
+            for w in f_inner.winfo_children(): w.destroy()
+            estado["labels"].clear()
+            estado["idx"] = -1
+            clientes = listar_clientes(busca)
+            estado["lista"] = clientes
+            for i, c in enumerate(clientes):
+                fiado = f" | Fiado: R$ {c['saldo_fiado']:.2f}" if c["saldo_fiado"] > 0 else ""
+                txt   = f"  {c['nome']:<30}  {c['telefone'] or '':>15}{fiado}"
+                bg    = "#F5F5F0" if i % 2 == 0 else "white"
+                lbl   = tk.Label(f_inner, text=txt,
+                                font=("Courier New", 11),
+                                fg="#1A1A2E", bg=bg,
+                                anchor="w", cursor="hand2")
+                lbl.pack(fill="x", pady=1)
+                lbl.bind("<Button-1>", lambda e, cc=c: [self._vincular_cliente(cc), win.destroy()])
+                estado["labels"].append((lbl, bg))
+            ent.focus_set()
+
+        def destacar(idx):
+            estado["idx"] = idx
+            for i, (lbl, bg) in enumerate(estado["labels"]):
+                lbl.configure(bg="#B45309" if i==idx else bg,
+                             fg="white"   if i==idx else "#1A1A2E")
+
+        def on_key(e):
+            if e.keysym in ("Up","Down","Return","Escape"): return "break"
+            popular(ent.get())
+
+        def on_down(e):
+            n = len(estado["labels"])
+            if n == 0: return "break"
+            novo = min(estado["idx"]+1, n-1) if estado["idx"] >= 0 else 0
+            destacar(novo)
+            return "break"
+
+        def on_up(e):
+            n = len(estado["labels"])
+            if n == 0: return "break"
+            novo = max(estado["idx"]-1, 0)
+            destacar(novo)
+            return "break"
+
+        def on_enter(e=None):
+            idx = estado["idx"]
+            if 0 <= idx < len(estado["lista"]):
+                self._vincular_cliente(estado["lista"][idx])
+                win.destroy()
+            elif len(estado["lista"]) == 1:
+                self._vincular_cliente(estado["lista"][0])
+                win.destroy()
+            return "break"
+
+        ent.bind("<KeyRelease>", on_key)
+        ent.bind("<Down>",       on_down)
+        ent.bind("<Up>",         on_up)
+        ent.bind("<Return>",     on_enter)
+        win.bind("<Escape>",     lambda e: win.destroy())
+
+        popular()
+        ent.focus_set()
+
+    def _vincular_cliente(self,cliente):
+        self.cliente_venda=cliente
+        self.lbl_cliente_venda.configure(text=f"👤 {cliente['nome']}",text_color=COR_ACENTO)
+        self.lbl_status_cx.configure(text=f"● Caixa #{self.caixa_id} — Aberto  |  👤 {cliente['nome']}")
+
+    def _trocar_vendedor(self):
+        from banco.database import get_conn
+        conn=get_conn(); vendedores=conn.execute("SELECT nome FROM usuarios WHERE ativo=1 ORDER BY nome").fetchall(); conn.close()
+        win=ctk.CTkToplevel(self); win.title("F6 — Vendedor"); win.geometry("320x300")
+        win.configure(fg_color=COR_CARD); win.grab_set()
+        ctk.CTkLabel(win,text="👤  Selecionar Vendedor",font=FONTE_TITULO,text_color=COR_ACENTO).pack(pady=(20,12))
+        scroll=ctk.CTkScrollableFrame(win,fg_color=COR_CARD2); scroll.pack(fill="both",expand=True,padx=24,pady=8)
+        for v in vendedores:
+            ctk.CTkButton(scroll,text=v["nome"],font=FONTE_LABEL,fg_color="transparent",hover_color=COR_ACENTO_LIGHT,text_color=COR_TEXTO,height=38,command=lambda n=v["nome"]:[setattr(self,"vendedor_atual",n),self.lbl_vendedor.configure(text=f"Vendedor: {n}"),win.destroy()]).pack(fill="x",pady=2)
+
+    def _buscar_produto(self,event=None):
+        codigo=self.ent_busca.get().strip()
+        if not codigo: return
+        prod=buscar_produto_por_codigo(codigo)
+        if prod: self._adicionar_item(prod); self.ent_busca.delete(0,"end")
+        else:
+            lista=listar_produtos(codigo)
+            if len(lista)==1: self._adicionar_item(lista[0]); self.ent_busca.delete(0,"end")
+            elif len(lista)>1: self._abrir_pesquisa(lista)
+            else: messagebox.showwarning("Não encontrado",f"Nenhum produto: {codigo}")
+
+    def _abrir_pesquisa(self, lista_pre=None):
+        win = ctk.CTkToplevel(self)
+        win.title("Pesquisar Produto")
+        win.geometry("700x520")
+        win.configure(fg_color=COR_CARD)
+        win.grab_set()
+
+        ctk.CTkLabel(win, text="🔍  Pesquisar Produto",
+                     font=FONTE_TITULO, text_color=COR_ACENTO).pack(pady=(16,8))
+
+        ctk.CTkLabel(win, text="↑↓ para navegar  •  Enter para selecionar  •  ESC para fechar",
+                     font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack()
+
+        ent = ctk.CTkEntry(win, font=FONTE_LABEL, width=440,
+                           placeholder_text="Nome ou código...",
+                           fg_color=COR_CARD2, border_color=COR_BORDA2,
+                           text_color=COR_TEXTO)
+        ent.pack(pady=6)
+
+        scroll = ctk.CTkScrollableFrame(win, fg_color=COR_CARD2)
+        scroll.pack(fill="both", expand=True, padx=16, pady=8)
+
+        # Estado da navegação
+        estado = {"idx": -1, "botoes": [], "lista": []}
+
+        def destacar(idx):
+            estado["idx"] = idx
+            n = len(estado["botoes"])
+            for i, btn in enumerate(estado["botoes"]):
+                btn.configure(
+                    fg_color=COR_LINHA_SEL if i == idx else "transparent",
+                    text_color=COR_ACENTO if i == idx else COR_TEXTO)
+
+        def popular(lista):
+            for w in scroll.winfo_children():
+                w.destroy()
+            estado["botoes"].clear()
+            estado["lista"] = lista
+            estado["idx"]   = -1
+            for i, p in enumerate(lista):
+                cod  = (p["codigo_barras"] or "S/COD")[:13]
+                nome = p["nome"][:35]
+                txt  = f"{cod:<13}  |  {nome:<35}  |  R$ {p['preco_venda']:.2f}"
+                i_cap = i
+                btn = ctk.CTkButton(
+                    scroll, text=txt,
+                    font=("Courier New", 11),
+                    fg_color="transparent",
+                    hover_color=COR_ACENTO_LIGHT,
+                    anchor="w", height=36,
+                    text_color=COR_TEXTO,
+                    command=lambda pp=p: [self._adicionar_item(pp), win.destroy()])
+                btn.pack(fill="x", pady=1)
+                btn.bind("<Enter>", lambda e, i=i_cap: destacar(i))
+                estado["botoes"].append(btn)
+
+        def navegar(delta):
+            n = len(estado["botoes"])
+            if n == 0:
+                return
+            novo = max(0, min(n-1, estado["idx"] + delta))
+            destacar(novo)
+            # Scroll suave para o item
+            try:
+                frac = novo / n
+                scroll._parent_canvas.yview_moveto(frac)
+            except Exception:
+                pass
+
+        def selecionar_enter(event=None):
+            idx = estado["idx"]
+            if idx >= 0 and idx < len(estado["lista"]):
+                self._adicionar_item(estado["lista"][idx])
+                win.destroy()
+            elif len(estado["lista"]) == 1:
+                self._adicionar_item(estado["lista"][0])
+                win.destroy()
+            elif ent.get().strip():
+                from banco.database import buscar_produto_por_codigo
+                prod = buscar_produto_por_codigo(ent.get().strip())
+                if prod:
+                    self._adicionar_item(prod)
+                    win.destroy()
+
+        IGNORAR = {"Up","Down","Left","Right","Return","Escape",
+                   "Tab","Home","End","Prior","Next",
+                   "Shift_L","Shift_R","Control_L","Control_R"}
+
+        def on_key_release(e):
+            if e.keysym in IGNORAR:
+                return "break"
+            popular(listar_produtos(ent.get()))
+
+        def on_down(e):
+            navegar(+1)
+            return "break"
+
+        def on_up(e):
+            navegar(-1)
+            return "break"
+
+        ent.bind("<KeyRelease>", on_key_release)
+        ent.bind("<Down>",  on_down)
+        ent.bind("<Up>",    on_up)
+        ent.bind("<Return>", selecionar_enter)
+        win.bind("<Escape>", lambda e: win.destroy())
+
+        popular(lista_pre or listar_produtos())
+        ent.focus_set()
+
+    def _get_qtde(self):
+        try: q=float(self.ent_qtde.get().replace(",",".")); return q if q>0 else 1
+        except: return 1
+
+    def _get_peso(self):
+        try: p=float(self.ent_peso.get().replace(",",".")); return p if p>0 else 0.0
+        except: return 0.0
+
+    def _adicionar_item(self,prod):
+        qtde=self._get_qtde(); peso=self._get_peso()
+        if prod["unidade"] in("KG","G","L","ML") and peso>0: qtde=peso
+        for item in self.itens:
+            if item["produto_id"]==prod["id"]:
+                item["quantidade"]+=qtde; item["peso"]=item.get("peso",0)+peso
+                item["total_item"]=round(item["quantidade"]*item["preco_unitario"]-item.get("desconto",0),2)
+                self._redesenhar_itens(); self._reset_campos(); return
+        self.itens.append({"produto_id":prod["id"],"nome_produto":prod["nome"],"codigo_barras":prod["codigo_barras"] or "","unidade":prod["unidade"],"quantidade":qtde,"peso":peso,"preco_unitario":prod["preco_venda"],"desconto":0.0,"total_item":round(prod["preco_venda"]*qtde,2)})
+        self._reset_campos(); self._redesenhar_itens()
+
+    def _reset_campos(self):
+        self.ent_qtde.delete(0,"end"); self.ent_qtde.insert(0,"1"); self.ent_peso.delete(0,"end")
+
+    def _remover_item(self,idx): self.itens.pop(idx); self._redesenhar_itens()
+
+    def _atualizar_totais(self):
+        subtotal=sum(i["total_item"] for i in self.itens); total=max(0,subtotal-self.desconto_global)
+        self.lbl_subtotal.configure(text=f"R$ {subtotal:.2f}"); self.lbl_desconto.configure(text=f"R$ {self.desconto_global:.2f}")
+        self.lbl_total.configure(text=f"R$ {total:.2f}"); self.lbl_qtde_itens.configure(text=str(len(self.itens)))
+
+    def _aplicar_desconto(self):
+        v=simpledialog.askfloat("Desconto","Valor do desconto (R$):",minvalue=0,parent=self)
+        if v is not None: self.desconto_global=v; self._atualizar_totais()
+
+    def _limpar_venda(self):
+        if messagebox.askyesno("Limpar","Cancelar a venda atual?"):
+            self.itens.clear(); self.desconto_global=0.0; self.cliente_venda=None
+            self.lbl_cliente_venda.configure(text="👤 Sem cliente",text_color=COR_TEXTO_SUB)
+            self._redesenhar_itens()
+
+    def _receber(self):
+        if not self.itens: messagebox.showwarning("Venda vazia","Adicione produtos."); return
+        subtotal=sum(i["total_item"] for i in self.itens); total=max(0,subtotal-self.desconto_global)
+        modo=self.cmb_modo.get()
+        if modo=="ORÇAMENTO": self._salvar_orcamento(total); return
+        if modo=="CONSIGNAÇÃO": self._salvar_consignacao(total); return
+        if modo=="PRAZO": DialogoPrazo(self,total,self._finalizar_venda_prazo); return
+        DialogoReceber(self,total,self._finalizar_venda)
+
+    def _finalizar_venda(self,forma,valor_pago,cpf):
+        itens_copia=list(self.itens); subtotal=sum(i["total_item"] for i in itens_copia)
+        venda_id,total,troco=registrar_venda(self.caixa_id,itens_copia,forma,valor_pago,self.desconto_global,cpf)
+        try:
+            from utils.impressora import imprimir_cupom
+            ok,msg_imp=imprimir_cupom(venda_id=venda_id,itens=itens_copia,subtotal=subtotal,desconto=self.desconto_global,total=total,forma_pagamento=forma,valor_pago=valor_pago,troco=troco,cpf=cpf)
+        except Exception as e: msg_imp=f"Cupom: {e}"
+        messagebox.showinfo("Venda Concluída",f"✅  Venda #{venda_id}\n\nTotal: R$ {total:.2f}\nPago: R$ {valor_pago:.2f}\nTroco: R$ {troco:.2f}\nForma: {forma}\n\n{msg_imp}")
+        if messagebox.askyesno("NFC-e","Emitir NFC-e?"): self._emitir_nfce(venda_id,itens_copia,total,self.desconto_global,forma,cpf)
+        self._limpar_pos_venda()
+
+    def _finalizar_venda_prazo(self,prazo_dias,cpf):
+        if not self.cliente_venda: messagebox.showerror("Erro","Selecione cliente (F2)."); return
+        itens_copia=list(self.itens); subtotal=sum(i["total_item"] for i in itens_copia)
+        total=max(0,subtotal-self.desconto_global)
+        venda_id,total,_=registrar_venda(self.caixa_id,itens_copia,"PRAZO",0,self.desconto_global,cpf)
+        from telas.clientes import lancar_fiado
+        from datetime import timedelta
+        venc=(datetime.now()+timedelta(days=prazo_dias)).strftime("%d/%m/%Y")
+        lancar_fiado(self.cliente_venda["id"],f"Venda #{venda_id} — vence {venc}",total,venda_id)
+        messagebox.showinfo("Venda a Prazo",f"✅ Venda #{venda_id}\nTotal: R$ {total:.2f}\nVencimento: {venc}\nCliente: {self.cliente_venda['nome']}")
+        self._limpar_pos_venda()
+
+    def _salvar_orcamento(self,total):
+        from banco.database import get_conn
+        import json; conn=get_conn()
+        conn.execute("CREATE TABLE IF NOT EXISTS orcamentos(id INTEGER PRIMARY KEY AUTOINCREMENT,cliente TEXT,total REAL,itens TEXT,data TEXT DEFAULT(datetime('now','localtime')),status TEXT DEFAULT 'ABERTO')")
+        conn.execute("INSERT INTO orcamentos(cliente,total,itens) VALUES(?,?,?)",(self.cliente_venda["nome"] if self.cliente_venda else "—",total,json.dumps(self.itens,ensure_ascii=False))); conn.commit(); conn.close()
+        messagebox.showinfo("Orçamento",f"✅ Orçamento salvo!\nTotal: R$ {total:.2f}"); self._limpar_pos_venda()
+
+    def _salvar_consignacao(self,total):
+        if not self.cliente_venda: messagebox.showerror("Erro","Selecione cliente (F2)."); return
+        from banco.database import get_conn
+        import json; conn=get_conn()
+        conn.execute("CREATE TABLE IF NOT EXISTS consignacoes(id INTEGER PRIMARY KEY AUTOINCREMENT,cliente_id INTEGER,cliente_nome TEXT,total REAL,itens TEXT,data TEXT DEFAULT(datetime('now','localtime')),status TEXT DEFAULT 'ABERTO')")
+        conn.execute("INSERT INTO consignacoes(cliente_id,cliente_nome,total,itens) VALUES(?,?,?,?)",(self.cliente_venda["id"],self.cliente_venda["nome"],total,json.dumps(self.itens,ensure_ascii=False))); conn.commit(); conn.close()
+        messagebox.showinfo("Consignação",f"✅ Consignação!\nCliente: {self.cliente_venda['nome']}\nTotal: R$ {total:.2f}"); self._limpar_pos_venda()
+
+    def _limpar_pos_venda(self):
+        self.itens.clear(); self.desconto_global=0.0; self.cliente_venda=None
+        self.lbl_cliente_venda.configure(text="👤 Sem cliente",text_color=COR_TEXTO_SUB)
+        self.cmb_modo.set("NORMAL"); self._mudar_modo("NORMAL"); self._redesenhar_itens()
+
+    def _emitir_nfce(self,venda_id,itens,total,desconto,forma,cpf):
+        try:
+            from fiscal.nfce import emitir_nfce
+            ok,msg,_=emitir_nfce(venda_id,itens,total,desconto,forma,cpf)
+            if ok: messagebox.showinfo("NFC-e",msg)
+            else: messagebox.showwarning("NFC-e",msg)
+        except Exception as e: messagebox.showerror("NFC-e",f"Erro: {e}")
+
+    def _sangria(self):
+        pass  # Sangria no menu principal
+
+    def _suprimento(self):
+        pass  # Suprimento no menu principal
+
+    def _abrir_sangria(self):
+        """Abre sangria/suprimento direto do PDV"""
+        from telas.sangria import TelaSangria
+        win = ctk.CTkToplevel(self)
+        win.title("Sangria / Suprimento")
+        win.geometry("900x600")
+        win.configure(fg_color=COR_FUNDO)
+        win.grab_set()
+        frame = ctk.CTkFrame(win, fg_color=COR_FUNDO, corner_radius=0)
+        frame.pack(fill="both", expand=True)
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(0, weight=1)
+        tela = TelaSangria(frame, self.vendedor_atual)
+        tela.grid(row=0, column=0, sticky="nsew")
+
+    def _abrir_config(self):
+        """Abre configurações direto do PDV"""
+        from telas.configuracoes import TelaConfiguracoes
+        win = ctk.CTkToplevel(self)
+        win.title("Configurações")
+        win.geometry("900x680")
+        win.configure(fg_color=COR_FUNDO)
+        win.grab_set()
+        TelaConfiguracoes(win).pack(fill="both", expand=True)
+
+    def _fechar_caixa(self):
+        if not self.caixa_id:
+            messagebox.showwarning("Aviso","Nenhum caixa aberto."); return
+        from telas.fechamento import TelaFechamentoCaixa
+        def pos_fechar():
+            self.caixa_id = None
+            self.lbl_status_cx.configure(
+                text="● Caixa FECHADO", text_color=COR_PERIGO)
+        DialogoFechamentoCaixa(self, self.caixa_id, pos_fechar)
+
+class DialogoReceber(ctk.CTkToplevel):
+    """Pagamento: botões rápidos + subcategoria cartão + múltiplas formas"""
+    def __init__(self, master, total, callback):
+        super().__init__(master)
+        self.title("Receber Pagamento")
+        self.geometry("520x660")
+        self.configure(fg_color=COR_CARD)
+        self.grab_set()
+        self.resizable(False, False)
+        self.total      = total
+        self.callback   = callback
+        self.pagamentos = []
+        self.forma_sel  = None
+        self._build()
+
+    def _build(self):
+        # Título
+        ctk.CTkLabel(self, text="💳  Receber Pagamento",
+                     font=FONTE_TITULO, text_color=COR_ACENTO).pack(pady=(20,4))
+        ctk.CTkLabel(self, text=f"Total:  R$ {self.total:.2f}",
+                     font=("Georgia",22,"bold"),
+                     text_color=COR_SUCESSO).pack()
+        ctk.CTkFrame(self, height=1, fg_color=COR_BORDA).pack(
+            fill="x", padx=24, pady=10)
+
+        # ── Botões rápidos ────────────────────────────────────────────────────
+        ctk.CTkLabel(self, text="Forma de pagamento:",
+                     font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack()
+
+        self.btns_forma = {}
+        grade = ctk.CTkFrame(self, fg_color="transparent")
+        grade.pack(pady=8)
+
+        formas = [
+            ("💵", "Dinheiro",  "DINHEIRO"),
+            ("📱", "PIX",       "PIX"),
+            ("💳", "Cartão",    "CARTAO"),
+        ]
+        for icone, label, val in formas:
+            f = ctk.CTkFrame(grade, fg_color=COR_CARD2,
+                             corner_radius=12,
+                             border_width=1, border_color=COR_BORDA,
+                             width=140, height=80)
+            f.pack(side="left", padx=8)
+            f.pack_propagate(False)
+
+            ctk.CTkLabel(f, text=icone,
+                         font=("Arial",30)).place(relx=0.5, rely=0.35, anchor="center")
+            ctk.CTkLabel(f, text=label,
+                         font=("Georgia",12,"bold"),
+                         text_color=COR_TEXTO).place(relx=0.5, rely=0.78, anchor="center")
+
+            val_cap = val
+            for w in [f] + f.winfo_children():
+                try:
+                    w.bind("<Button-1>", lambda e, v=val_cap: self._sel_forma(v))
+                except Exception:
+                    pass
+            self.btns_forma[val] = f
+
+        # ── Subcategoria Cartão (aparece só quando CARTAO selecionado) ────────
+        self.frame_cartao = ctk.CTkFrame(self, fg_color=COR_ACENTO_LIGHT,
+                                          corner_radius=10,
+                                          border_width=1, border_color=COR_ACENTO)
+        # Não exibido ainda
+
+        ctk.CTkLabel(self.frame_cartao, text="Tipo do cartão:",
+                     font=FONTE_SMALL, text_color=COR_ACENTO).pack(pady=(10,4))
+
+        self.btns_cartao = {}
+        grade_c = ctk.CTkFrame(self.frame_cartao, fg_color="transparent")
+        grade_c.pack(pady=4)
+
+        tipos = [
+            ("💳 Débito",        "DEBITO"),
+            ("💳 Crédito",       "CREDITO"),
+            ("📆 Cred. Parc.",   "CREDITO PARCELADO"),
+            ("🍽️ Vale Alim.",    "VALE ALIMENTACAO"),
+            ("🥗 Vale Refei.",   "VALE REFEICAO"),
+        ]
+        row = 0; col = 0
+        for label, val in tipos:
+            btn = ctk.CTkButton(
+                grade_c, text=label,
+                font=("Courier New",11), width=140, height=34,
+                fg_color=COR_CARD, hover_color=COR_ACENTO_LIGHT,
+                text_color=COR_TEXTO,
+                border_width=1, border_color=COR_BORDA2,
+                command=lambda v=val: self._sel_cartao(v))
+            btn.grid(row=row, column=col, padx=4, pady=3)
+            col += 1
+            if col > 1: col = 0; row += 1
+            self.btns_cartao[val] = btn
+
+        # Parcelas (dentro do frame cartão)
+        self.frame_parcelas = ctk.CTkFrame(self.frame_cartao, fg_color="transparent")
+        ctk.CTkLabel(self.frame_parcelas, text="Parcelas:",
+                     font=FONTE_SMALL, text_color=COR_ACENTO).pack(side="left", padx=(10,4))
+        self.cmb_parcelas = ctk.CTkComboBox(
+            self.frame_parcelas,
+            values=["2x","3x","4x","5x","6x","7x","8x","9x","10x","11x","12x"],
+            font=FONTE_LABEL, width=80,
+            fg_color=COR_CARD, border_color=COR_BORDA2, text_color=COR_TEXTO)
+        self.cmb_parcelas.set("2x")
+        self.cmb_parcelas.pack(side="left", padx=4, pady=(0,8))
+
+        # ── Valor + Troco ──────────────────────────────────────────────────────
+        ctk.CTkFrame(self, height=1, fg_color=COR_BORDA).pack(
+            fill="x", padx=24, pady=4)
+
+        fv = ctk.CTkFrame(self, fg_color="transparent")
+        fv.pack(fill="x", padx=24)
+        ctk.CTkLabel(fv, text="Valor pago R$:",
+                     font=FONTE_LABEL, text_color=COR_TEXTO_SUB).pack(side="left")
+        self.ent_valor = ctk.CTkEntry(
+            fv, font=("Georgia",18), width=150, justify="center",
+            fg_color=COR_CARD2, border_color=COR_BORDA2, text_color=COR_TEXTO)
+        self.ent_valor.insert(0, f"{self.total:.2f}")
+        self.ent_valor.pack(side="left", padx=8)
+        self.ent_valor.bind("<KeyRelease>", self._atualizar_troco)
+
+        self.lbl_troco = ctk.CTkLabel(
+            self, text="Troco: R$ 0,00",
+            font=("Georgia",14,"bold"), text_color=COR_ACENTO)
+        self.lbl_troco.pack(pady=4)
+
+        # ── Pagamentos lançados ────────────────────────────────────────────────
+        self.frame_pgtos = ctk.CTkScrollableFrame(
+            self, fg_color=COR_CARD2, height=50, corner_radius=8)
+        self.frame_pgtos.pack(fill="x", padx=24, pady=4)
+
+        # ── CPF + Confirmar ────────────────────────────────────────────────────
+        fc = ctk.CTkFrame(self, fg_color="transparent")
+        fc.pack(fill="x", padx=24, pady=4)
+        ctk.CTkLabel(fc, text="CPF (opcional):",
+                     font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack(side="left")
+        self.ent_cpf = ctk.CTkEntry(
+            fc, font=FONTE_LABEL, width=180,
+            placeholder_text="000.000.000-00",
+            fg_color=COR_CARD2, border_color=COR_BORDA2, text_color=COR_TEXTO)
+        self.ent_cpf.pack(side="left", padx=8)
+
+        ctk.CTkButton(
+            self, text="✅  CONFIRMAR PAGAMENTO",
+            font=("Georgia",13,"bold"),
+            fg_color=COR_SUCESSO, hover_color=COR_SUCESSO2,
+            text_color="white", height=48, corner_radius=10,
+            command=self._confirmar).pack(fill="x", padx=24, pady=(8,16))
+
+        # Seleciona Dinheiro por padrão
+        self._sel_forma("DINHEIRO")
+
+    def _sel_forma(self, forma):
+        self.forma_sel = forma
+        # Destaca botão selecionado
+        cores = {"DINHEIRO": COR_SUCESSO, "PIX": COR_INFO, "CARTAO": COR_ACENTO}
+        for k, f in self.btns_forma.items():
+            if k == forma:
+                f.configure(fg_color=COR_ACENTO_LIGHT,
+                            border_color=cores.get(k, COR_ACENTO),
+                            border_width=2)
+            else:
+                f.configure(fg_color=COR_CARD2,
+                            border_color=COR_BORDA,
+                            border_width=1)
+
+        # Mostra/esconde painel cartão
+        if forma == "CARTAO":
+            self.frame_cartao.pack(fill="x", padx=24, pady=4)
+        else:
+            self.frame_cartao.pack_forget()
+            self.frame_parcelas.pack_forget()
+            self.subcategoria_cartao = None
+
+    def _sel_cartao(self, tipo):
+        self.subcategoria_cartao = tipo
+        # Destaca botão
+        for k, btn in self.btns_cartao.items():
+            if k == tipo:
+                btn.configure(fg_color=COR_ACENTO_LIGHT,
+                              border_color=COR_ACENTO, border_width=2,
+                              text_color=COR_ACENTO)
+            else:
+                btn.configure(fg_color=COR_CARD,
+                              border_color=COR_BORDA2, border_width=1,
+                              text_color=COR_TEXTO)
+        # Mostra parcelas só se parcelado
+        if tipo == "CREDITO PARCELADO":
+            self.frame_parcelas.pack(pady=(4,8))
+        else:
+            self.frame_parcelas.pack_forget()
+
+    def _atualizar_troco(self, event=None):
+        try:
+            pago  = float(self.ent_valor.get().replace(",","."))
+            total_pgtos = sum(p["valor"] for p in self.pagamentos)
+            troco = pago + total_pgtos - self.total
+            if troco >= 0:
+                self.lbl_troco.configure(
+                    text=f"Troco: R$ {troco:.2f}", text_color=COR_SUCESSO)
+            else:
+                self.lbl_troco.configure(
+                    text=f"Faltam: R$ {abs(troco):.2f}", text_color=COR_PERIGO)
+        except Exception:
+            pass
+
+    def _get_forma_completa(self):
+        if self.forma_sel == "CARTAO":
+            sub = getattr(self, "subcategoria_cartao", None)
+            if not sub:
+                messagebox.showerror("Erro","Selecione o tipo do cartão.",parent=self)
+                return None
+            forma = f"CARTAO - {sub}"
+            if sub == "CREDITO PARCELADO":
+                forma += f" {self.cmb_parcelas.get()}"
+            return forma
+        return self.forma_sel
+
+    def _confirmar(self):
+        forma = self._get_forma_completa()
+        if not forma:
+            return
+        try:
+            pago = float(self.ent_valor.get().replace(",","."))
+        except ValueError:
+            messagebox.showerror("Erro","Valor inválido.",parent=self); return
+
+        total_pgtos = sum(p["valor"] for p in self.pagamentos) + pago
+        if total_pgtos < self.total - 0.01:
+            messagebox.showerror("Erro",
+                f"Valor insuficiente!\nFaltam R$ {self.total-total_pgtos:.2f}",
+                parent=self)
+            return
+
+        troco = max(0, total_pgtos - self.total)
+        self.callback(forma, pago, self.ent_cpf.get())
+        self.destroy()
+
+
+class DialogoPrazo(ctk.CTkToplevel):
+    def __init__(self,master,total,callback):
+        super().__init__(master); self.title("Venda a Prazo"); self.geometry("360x280")
+        self.configure(fg_color=COR_CARD); self.grab_set(); self.total=total; self.callback=callback; self._build()
+    def _build(self):
+        ctk.CTkLabel(self,text="📅  Venda a Prazo",font=FONTE_TITULO,text_color=COR_ACENTO).pack(pady=(24,8))
+        ctk.CTkLabel(self,text=f"Total: R$ {self.total:.2f}",font=("Georgia",18,"bold"),text_color=COR_SUCESSO).pack()
+        ctk.CTkFrame(self,height=1,fg_color=COR_BORDA).pack(fill="x",padx=24,pady=12)
+        ctk.CTkLabel(self,text="Prazo:",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack()
+        self.cmb=ctk.CTkComboBox(self,values=["7 dias","15 dias","30 dias","60 dias","90 dias"],font=FONTE_LABEL,fg_color=COR_CARD2,border_color=COR_BORDA2,text_color=COR_TEXTO)
+        self.cmb.set("30 dias"); self.cmb.pack(pady=8,padx=24,fill="x")
+        ctk.CTkLabel(self,text="CPF (opcional):",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack()
+        self.ent_cpf=ctk.CTkEntry(self,font=FONTE_LABEL,width=200,placeholder_text="000.000.000-00",fg_color=COR_CARD2,border_color=COR_BORDA2,text_color=COR_TEXTO); self.ent_cpf.pack(pady=4)
+        ctk.CTkButton(self,text="✅  Confirmar",font=FONTE_BTN,fg_color=COR_ACENTO,hover_color=COR_ACENTO2,text_color="white",height=44,command=self._confirmar).pack(fill="x",padx=24,pady=12)
+    def _confirmar(self):
+        dias=int(self.cmb.get().split()[0]); self.callback(dias,self.ent_cpf.get()); self.destroy()
