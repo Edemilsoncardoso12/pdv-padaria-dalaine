@@ -180,21 +180,36 @@ class TelaBloqueioSessao:
 
         def desbloquear():
             from banco.database import get_conn
-            import hashlib
-            senha = ent.get()
-            salt  = "pdv_padaria_laine_2025"
-            h     = hashlib.sha256(f"{salt}{senha}".encode()).hexdigest()
-            conn  = get_conn()
-            ok    = conn.execute(
-                "SELECT id FROM usuarios WHERE senha=? AND ativo=1", (h,)
+            import hashlib, base64
+            senha = ent.get().strip()
+            if not senha:
+                return
+
+            # Hash scrypt (método atual)
+            salt_scrypt = b"pdv_padaria_laine_2025_fixed"
+            h_bytes = hashlib.scrypt(
+                senha.encode(), salt=salt_scrypt, n=16384, r=8, p=1, dklen=32)
+            hash_scrypt = "scrypt:" + base64.b64encode(h_bytes).decode()
+
+            # Hash SHA-256 (método legado)
+            salt_leg = "pdv_padaria_laine_2025"
+            hash_leg = hashlib.sha256(
+                f"{salt_leg}{senha}".encode()).hexdigest()
+
+            conn = get_conn()
+            ok = conn.execute(
+                "SELECT id FROM usuarios WHERE (senha=? OR senha=?) AND ativo=1",
+                (hash_scrypt, hash_leg)
             ).fetchone()
             conn.close()
+
             if ok:
                 sessao.registrar_atividade()
                 win.destroy()
             else:
-                lbl_erro.configure(text="Senha incorreta!")
+                lbl_erro.configure(text="❌ Senha incorreta!")
                 ent.delete(0, "end")
+                ent.focus_set()
 
         ent.bind("<Return>", lambda e: desbloquear())
         ctk.CTkButton(win, text="Desbloquear",
