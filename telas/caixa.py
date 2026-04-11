@@ -916,103 +916,88 @@ class TelaCaixa(ctk.CTkFrame):
         DialogoFechamentoCaixa(self, self.caixa_id, pos_fechar)
 
 class DialogoReceber(ctk.CTkToplevel):
-    """Pagamento: botões rápidos + subcategoria cartão + múltiplas formas"""
+    """Pagamento estilo Lovable — botões rápidos de valor + troco automático"""
     def __init__(self, master, total, callback):
         super().__init__(master)
-        self.title("Receber Pagamento")
-        self.geometry("520x660")
+        self.title("Finalizar Pagamento")
+        self.geometry("520x700")
         self.configure(fg_color=COR_CARD)
         self.grab_set()
         self.resizable(False, False)
-        self.total      = total
-        self.callback   = callback
-        self.pagamentos = []
-        self.forma_sel  = None
+        self.total               = total
+        self.callback            = callback
+        self.forma_sel           = None
+        self.subcategoria_cartao = None
         self._build()
+        self.bind("<F9>", lambda e: self._confirmar())
 
     def _build(self):
-        # Título
-        ctk.CTkLabel(self, text="💳  Receber Pagamento",
-                     font=FONTE_TITULO, text_color=COR_ACENTO).pack(pady=(20,4))
+        # ── Título + Total ────────────────────────────────────────────────
+        ctk.CTkLabel(self, text="💳  Finalizar Pagamento",
+                     font=FONTE_TITULO, text_color=COR_ACENTO).pack(pady=(20,2))
         ctk.CTkLabel(self, text=f"Total:  R$ {self.total:.2f}",
-                     font=("Georgia",22,"bold"),
+                     font=("Georgia",24,"bold"),
                      text_color=COR_SUCESSO).pack()
         ctk.CTkFrame(self, height=1, fg_color=COR_BORDA).pack(
             fill="x", padx=24, pady=10)
 
-        # ── Botões rápidos ────────────────────────────────────────────────────
+        # ── Forma de pagamento ────────────────────────────────────────────
         ctk.CTkLabel(self, text="Forma de pagamento:",
                      font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack()
 
         self.btns_forma = {}
         grade = ctk.CTkFrame(self, fg_color="transparent")
-        grade.pack(pady=8)
+        grade.pack(pady=6)
 
         formas = [
-            ("💵", "Dinheiro",  "DINHEIRO"),
-            ("📱", "PIX",       "PIX"),
-            ("💳", "Cartão",    "CARTAO"),
+            ("💵", "Dinheiro", "DINHEIRO"),
+            ("📱", "PIX",      "PIX"),
+            ("💳", "Cartão",   "CARTAO"),
+            ("📋", "Fiado",    "FIADO"),
         ]
         for icone, label, val in formas:
-            f = ctk.CTkFrame(grade, fg_color=COR_CARD2,
-                             corner_radius=12,
+            f = ctk.CTkFrame(grade, fg_color=COR_CARD2, corner_radius=12,
                              border_width=1, border_color=COR_BORDA,
-                             width=140, height=80)
-            f.pack(side="left", padx=8)
+                             width=110, height=70)
+            f.pack(side="left", padx=6)
             f.pack_propagate(False)
-
-            ctk.CTkLabel(f, text=icone,
-                         font=("Arial",30)).place(relx=0.5, rely=0.35, anchor="center")
-            ctk.CTkLabel(f, text=label,
-                         font=("Georgia",12,"bold"),
+            ctk.CTkLabel(f, text=icone, font=("Arial",24)).place(relx=0.5, rely=0.35, anchor="center")
+            ctk.CTkLabel(f, text=label, font=("Georgia",11,"bold"),
                          text_color=COR_TEXTO).place(relx=0.5, rely=0.78, anchor="center")
-
             val_cap = val
             for w in [f] + f.winfo_children():
-                try:
-                    w.bind("<Button-1>", lambda e, v=val_cap: self._sel_forma(v))
-                except Exception:
-                    pass
+                try: w.bind("<Button-1>", lambda e, v=val_cap: self._sel_forma(v))
+                except: pass
             self.btns_forma[val] = f
 
-        # ── Subcategoria Cartão (aparece só quando CARTAO selecionado) ────────
+        # ── Painel Cartão (oculto inicialmente) ───────────────────────────
         self.frame_cartao = ctk.CTkFrame(self, fg_color=COR_ACENTO_LIGHT,
-                                          corner_radius=10,
-                                          border_width=1, border_color=COR_ACENTO)
-        # Não exibido ainda
-
+                                          corner_radius=10, border_width=1,
+                                          border_color=COR_ACENTO)
         ctk.CTkLabel(self.frame_cartao, text="Tipo do cartão:",
-                     font=FONTE_SMALL, text_color=COR_ACENTO).pack(pady=(10,4))
-
+                     font=FONTE_SMALL, text_color=COR_ACENTO).pack(pady=(8,4))
         self.btns_cartao = {}
         grade_c = ctk.CTkFrame(self.frame_cartao, fg_color="transparent")
         grade_c.pack(pady=4)
-
-        tipos = [
-            ("💳 Débito",        "DEBITO"),
-            ("💳 Crédito",       "CREDITO"),
-            ("📆 Cred. Parc.",   "CREDITO PARCELADO"),
-            ("🍽️ Vale Alim.",    "VALE ALIMENTACAO"),
-            ("🥗 Vale Refei.",   "VALE REFEICAO"),
-        ]
+        tipos = [("💳 Débito","DEBITO"),("💳 Crédito","CREDITO"),
+                 ("📆 Cred. Parc.","CREDITO PARCELADO"),
+                 ("🍽️ Vale Alim.","VALE ALIMENTACAO"),
+                 ("🥗 Vale Refei.","VALE REFEICAO")]
         row = 0; col = 0
         for label, val in tipos:
-            btn = ctk.CTkButton(
-                grade_c, text=label,
-                font=("Courier New",11), width=140, height=34,
-                fg_color=COR_CARD, hover_color=COR_ACENTO_LIGHT,
-                text_color=COR_TEXTO,
-                border_width=1, border_color=COR_BORDA2,
-                command=lambda v=val: self._sel_cartao(v))
-            btn.grid(row=row, column=col, padx=4, pady=3)
+            btn = ctk.CTkButton(grade_c, text=label, font=("Courier New",11),
+                                width=140, height=32,
+                                fg_color=COR_CARD, hover_color=COR_ACENTO_LIGHT,
+                                text_color=COR_TEXTO, border_width=1,
+                                border_color=COR_BORDA2,
+                                command=lambda v=val: self._sel_cartao(v))
+            btn.grid(row=row, column=col, padx=4, pady=2)
             col += 1
             if col > 1: col = 0; row += 1
             self.btns_cartao[val] = btn
-
-        # Parcelas (dentro do frame cartão)
         self.frame_parcelas = ctk.CTkFrame(self.frame_cartao, fg_color="transparent")
-        ctk.CTkLabel(self.frame_parcelas, text="Parcelas:",
-                     font=FONTE_SMALL, text_color=COR_ACENTO).pack(side="left", padx=(10,4))
+        ctk.CTkLabel(self.frame_parcelas, text="Parcelas:", font=FONTE_SMALL,
+                     text_color=COR_ACENTO).pack(side="left", padx=(10,4))
         self.cmb_parcelas = ctk.CTkComboBox(
             self.frame_parcelas,
             values=["2x","3x","4x","5x","6x","7x","8x","9x","10x","11x","12x"],
@@ -1021,56 +1006,100 @@ class DialogoReceber(ctk.CTkToplevel):
         self.cmb_parcelas.set("2x")
         self.cmb_parcelas.pack(side="left", padx=4, pady=(0,8))
 
-        # ── Valor + Troco ──────────────────────────────────────────────────────
         ctk.CTkFrame(self, height=1, fg_color=COR_BORDA).pack(
-            fill="x", padx=24, pady=4)
+            fill="x", padx=24, pady=6)
 
-        fv = ctk.CTkFrame(self, fg_color="transparent")
-        fv.pack(fill="x", padx=24)
-        ctk.CTkLabel(fv, text="Valor pago R$:",
-                     font=FONTE_LABEL, text_color=COR_TEXTO_SUB).pack(side="left")
+        # ── Campo de valor recebido ───────────────────────────────────────
+        ctk.CTkLabel(self, text="Valor Recebido (R$):",
+                     font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack()
+
         self.ent_valor = ctk.CTkEntry(
-            fv, font=("Georgia",18), width=150, justify="center",
-            fg_color=COR_CARD2, border_color=COR_BORDA2, text_color=COR_TEXTO)
+            self, font=("Georgia", 28), width=220, height=52,
+            justify="center",
+            fg_color=COR_CARD2, border_color=COR_ACENTO,
+            border_width=2, text_color=COR_TEXTO)
+        self.ent_valor.pack(pady=6)
         self.ent_valor.insert(0, f"{self.total:.2f}")
-        self.ent_valor.pack(side="left", padx=8)
         self.ent_valor.bind("<KeyRelease>", self._atualizar_troco)
+        self.ent_valor.select_range(0, "end")
+        self.ent_valor.focus_set()
 
+        # ── Botões rápidos de valor ───────────────────────────────────────
+        grade_v = ctk.CTkFrame(self, fg_color="transparent")
+        grade_v.pack(pady=4)
+
+        valores = [5, 10, 20, 50, 100, 200]
+        for i, v in enumerate(valores):
+            ctk.CTkButton(
+                grade_v, text=f"R$ {v}",
+                font=("Georgia", 12, "bold"),
+                width=72, height=36,
+                fg_color=COR_CARD2, hover_color=COR_ACENTO_LIGHT,
+                text_color=COR_TEXTO, border_width=1,
+                border_color=COR_BORDA2, corner_radius=8,
+                command=lambda val=v: self._set_valor_rapido(val)
+            ).grid(row=0, column=i, in_=grade_v, padx=3)
+
+        # Botão "Valor Exato"
+        ctk.CTkButton(
+            self, text="✅ Valor Exato",
+            font=FONTE_BTN, height=34, width=140,
+            fg_color=COR_ACENTO, hover_color=COR_ACENTO2,
+            text_color="white", corner_radius=8,
+            command=self._valor_exato
+        ).pack(pady=(4,0))
+
+        # ── Troco grande e destacado ──────────────────────────────────────
+        self.frame_troco = ctk.CTkFrame(self, fg_color=COR_SUCESSO,
+                                         corner_radius=10)
+        self.frame_troco.pack(fill="x", padx=24, pady=8)
+        ctk.CTkLabel(self.frame_troco, text="Troco",
+                     font=FONTE_SMALL, text_color="white").pack(pady=(6,0))
         self.lbl_troco = ctk.CTkLabel(
-            self, text="Troco: R$ 0,00",
-            font=("Georgia",14,"bold"), text_color=COR_ACENTO)
-        self.lbl_troco.pack(pady=4)
+            self.frame_troco, text="R$ 0,00",
+            font=("Georgia", 26, "bold"), text_color="white")
+        self.lbl_troco.pack(pady=(0,8))
 
-        # ── Pagamentos lançados ────────────────────────────────────────────────
-        self.frame_pgtos = ctk.CTkScrollableFrame(
-            self, fg_color=COR_CARD2, height=50, corner_radius=8)
-        self.frame_pgtos.pack(fill="x", padx=24, pady=4)
-
-        # ── CPF + Confirmar ────────────────────────────────────────────────────
+        # ── CPF ───────────────────────────────────────────────────────────
         fc = ctk.CTkFrame(self, fg_color="transparent")
-        fc.pack(fill="x", padx=24, pady=4)
+        fc.pack(fill="x", padx=24, pady=2)
         ctk.CTkLabel(fc, text="CPF (opcional):",
                      font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack(side="left")
-        self.ent_cpf = ctk.CTkEntry(
-            fc, font=FONTE_LABEL, width=180,
-            placeholder_text="000.000.000-00",
-            fg_color=COR_CARD2, border_color=COR_BORDA2, text_color=COR_TEXTO)
+        self.ent_cpf = ctk.CTkEntry(fc, font=FONTE_LABEL, width=180,
+                                     placeholder_text="000.000.000-00",
+                                     fg_color=COR_CARD2, border_color=COR_BORDA2,
+                                     text_color=COR_TEXTO)
         self.ent_cpf.pack(side="left", padx=8)
 
+        # ── Botão confirmar ───────────────────────────────────────────────
         ctk.CTkButton(
-            self, text="✅  CONFIRMAR PAGAMENTO",
-            font=("Georgia",13,"bold"),
+            self, text="F9  ✅  CONFIRMAR PAGAMENTO",
+            font=("Georgia", 13, "bold"),
             fg_color=COR_SUCESSO, hover_color=COR_SUCESSO2,
-            text_color="white", height=48, corner_radius=10,
-            command=self._confirmar).pack(fill="x", padx=24, pady=(8,16))
+            text_color="white", height=50, corner_radius=10,
+            command=self._confirmar
+        ).pack(fill="x", padx=24, pady=(8,16))
 
         # Seleciona Dinheiro por padrão
         self._sel_forma("DINHEIRO")
+        self._atualizar_troco()
+
+    def _set_valor_rapido(self, val):
+        """Clique em R$5, R$10, R$20, etc"""
+        self.ent_valor.delete(0, "end")
+        self.ent_valor.insert(0, f"{val:.2f}")
+        self._atualizar_troco()
+
+    def _valor_exato(self):
+        """Preenche com o valor exato da venda"""
+        self.ent_valor.delete(0, "end")
+        self.ent_valor.insert(0, f"{self.total:.2f}")
+        self._atualizar_troco()
 
     def _sel_forma(self, forma):
         self.forma_sel = forma
-        # Destaca botão selecionado
-        cores = {"DINHEIRO": COR_SUCESSO, "PIX": COR_INFO, "CARTAO": COR_ACENTO}
+        cores = {"DINHEIRO": COR_SUCESSO, "PIX": COR_INFO,
+                 "CARTAO": COR_ACENTO, "FIADO": COR_AVISO}
         for k, f in self.btns_forma.items():
             if k == forma:
                 f.configure(fg_color=COR_ACENTO_LIGHT,
@@ -1078,8 +1107,7 @@ class DialogoReceber(ctk.CTkToplevel):
                             border_width=2)
             else:
                 f.configure(fg_color=COR_CARD2,
-                            border_color=COR_BORDA,
-                            border_width=1)
+                            border_color=COR_BORDA, border_width=1)
 
         # Mostra/esconde painel cartão
         if forma == "CARTAO":
@@ -1089,19 +1117,20 @@ class DialogoReceber(ctk.CTkToplevel):
             self.frame_parcelas.pack_forget()
             self.subcategoria_cartao = None
 
+        # PIX e Cartão — valor exato automático
+        if forma in ("PIX", "CARTAO", "FIADO"):
+            self._valor_exato()
+
     def _sel_cartao(self, tipo):
         self.subcategoria_cartao = tipo
-        # Destaca botão
         for k, btn in self.btns_cartao.items():
             if k == tipo:
                 btn.configure(fg_color=COR_ACENTO_LIGHT,
                               border_color=COR_ACENTO, border_width=2,
                               text_color=COR_ACENTO)
             else:
-                btn.configure(fg_color=COR_CARD,
-                              border_color=COR_BORDA2, border_width=1,
-                              text_color=COR_TEXTO)
-        # Mostra parcelas só se parcelado
+                btn.configure(fg_color=COR_CARD, border_color=COR_BORDA2,
+                              border_width=1, text_color=COR_TEXTO)
         if tipo == "CREDITO PARCELADO":
             self.frame_parcelas.pack(pady=(4,8))
         else:
@@ -1110,22 +1139,21 @@ class DialogoReceber(ctk.CTkToplevel):
     def _atualizar_troco(self, event=None):
         try:
             pago  = float(self.ent_valor.get().replace(",","."))
-            total_pgtos = sum(p["valor"] for p in self.pagamentos)
-            troco = pago + total_pgtos - self.total
+            troco = pago - self.total
             if troco >= 0:
-                self.lbl_troco.configure(
-                    text=f"Troco: R$ {troco:.2f}", text_color=COR_SUCESSO)
+                self.lbl_troco.configure(text=f"R$ {troco:.2f}")
+                self.frame_troco.configure(fg_color=COR_SUCESSO)
             else:
-                self.lbl_troco.configure(
-                    text=f"Faltam: R$ {abs(troco):.2f}", text_color=COR_PERIGO)
+                self.lbl_troco.configure(text=f"Faltam R$ {abs(troco):.2f}")
+                self.frame_troco.configure(fg_color=COR_PERIGO)
         except Exception:
             pass
 
     def _get_forma_completa(self):
         if self.forma_sel == "CARTAO":
-            sub = getattr(self, "subcategoria_cartao", None)
+            sub = self.subcategoria_cartao
             if not sub:
-                messagebox.showerror("Erro","Selecione o tipo do cartão.",parent=self)
+                messagebox.showerror("Erro", "Selecione o tipo do cartão.", parent=self)
                 return None
             forma = f"CARTAO - {sub}"
             if sub == "CREDITO PARCELADO":
@@ -1140,19 +1168,15 @@ class DialogoReceber(ctk.CTkToplevel):
         try:
             pago = float(self.ent_valor.get().replace(",","."))
         except ValueError:
-            messagebox.showerror("Erro","Valor inválido.",parent=self); return
-
-        total_pgtos = sum(p["valor"] for p in self.pagamentos) + pago
-        if total_pgtos < self.total - 0.01:
+            messagebox.showerror("Erro", "Valor inválido.", parent=self)
+            return
+        if pago < self.total - 0.01:
             messagebox.showerror("Erro",
-                f"Valor insuficiente!\nFaltam R$ {self.total-total_pgtos:.2f}",
+                f"Valor insuficiente!\nFaltam R$ {self.total-pago:.2f}",
                 parent=self)
             return
-
-        troco = max(0, total_pgtos - self.total)
         self.callback(forma, pago, self.ent_cpf.get())
         self.destroy()
-
 
 class DialogoPrazo(ctk.CTkToplevel):
     def __init__(self,master,total,callback):

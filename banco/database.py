@@ -28,6 +28,7 @@ def inicializar_banco():
         CREATE TABLE IF NOT EXISTS produtos (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             codigo_barras   TEXT UNIQUE,
+            codigo_interno  TEXT DEFAULT '',
             nome            TEXT NOT NULL,
             ncm             TEXT DEFAULT '',
             unidade         TEXT DEFAULT 'UN',
@@ -35,12 +36,38 @@ def inicializar_banco():
             marca           TEXT DEFAULT '',
             preco_custo     REAL DEFAULT 0,
             preco_venda     REAL DEFAULT 0,
+            preco_promocional REAL DEFAULT 0,
+            preco_atacado   REAL DEFAULT 0,
+            qtd_atacado     REAL DEFAULT 0,
+            margem_lucro    REAL DEFAULT 0,
             estoque_atual   REAL DEFAULT 0,
             estoque_minimo  REAL DEFAULT 0,
+            estoque_maximo  REAL DEFAULT 0,
+            localizacao     TEXT DEFAULT '',
+            observacao      TEXT DEFAULT '',
+            foto_path       TEXT DEFAULT '',
             ativo           INTEGER DEFAULT 1,
             criado_em       TEXT DEFAULT (datetime('now','localtime'))
         )
     """)
+
+    # Migração — adiciona colunas novas se não existirem
+    colunas_novas = [
+        ("codigo_interno",    "TEXT DEFAULT ''"),
+        ("preco_promocional", "REAL DEFAULT 0"),
+        ("preco_atacado",     "REAL DEFAULT 0"),
+        ("qtd_atacado",       "REAL DEFAULT 0"),
+        ("margem_lucro",      "REAL DEFAULT 0"),
+        ("estoque_maximo",    "REAL DEFAULT 0"),
+        ("localizacao",       "TEXT DEFAULT ''"),
+        ("observacao",        "TEXT DEFAULT ''"),
+        ("foto_path",         "TEXT DEFAULT ''"),
+    ]
+    for col, tipo in colunas_novas:
+        try:
+            c.execute(f"ALTER TABLE produtos ADD COLUMN {col} {tipo}")
+        except Exception:
+            pass
 
     # Caixa
     c.execute("""
@@ -162,23 +189,41 @@ def buscar_produto_por_codigo(codigo):
 
 def salvar_produto(dados: dict, produto_id=None):
     conn = get_conn()
+    # Calcula margem automaticamente
+    pc = dados.get("preco_custo", 0) or 0
+    pv = dados.get("preco_venda", 0) or 0
+    margem = round(((pv - pc) / pc * 100), 2) if pc > 0 else 0
+    dados["margem_lucro"] = margem
+
     if produto_id:
         conn.execute("""
             UPDATE produtos SET
-                codigo_barras=:codigo_barras, nome=:nome, ncm=:ncm,
+                codigo_barras=:codigo_barras,
+                codigo_interno=:codigo_interno,
+                nome=:nome, ncm=:ncm,
                 unidade=:unidade, grupo=:grupo, marca=:marca,
                 preco_custo=:preco_custo, preco_venda=:preco_venda,
-                estoque_minimo=:estoque_minimo
+                preco_promocional=:preco_promocional,
+                preco_atacado=:preco_atacado, qtd_atacado=:qtd_atacado,
+                margem_lucro=:margem_lucro,
+                estoque_minimo=:estoque_minimo,
+                estoque_maximo=:estoque_maximo,
+                localizacao=:localizacao,
+                observacao=:observacao
             WHERE id=:id
         """, {**dados, "id": produto_id})
     else:
         conn.execute("""
             INSERT INTO produtos
-                (codigo_barras,nome,ncm,unidade,grupo,marca,
-                 preco_custo,preco_venda,estoque_minimo)
+                (codigo_barras, codigo_interno, nome, ncm, unidade, grupo, marca,
+                 preco_custo, preco_venda, preco_promocional, preco_atacado,
+                 qtd_atacado, margem_lucro, estoque_minimo, estoque_maximo,
+                 localizacao, observacao)
             VALUES
-                (:codigo_barras,:nome,:ncm,:unidade,:grupo,:marca,
-                 :preco_custo,:preco_venda,:estoque_minimo)
+                (:codigo_barras, :codigo_interno, :nome, :ncm, :unidade, :grupo, :marca,
+                 :preco_custo, :preco_venda, :preco_promocional, :preco_atacado,
+                 :qtd_atacado, :margem_lucro, :estoque_minimo, :estoque_maximo,
+                 :localizacao, :observacao)
         """, dados)
     conn.commit()
     conn.close()
