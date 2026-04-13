@@ -27,3 +27,6 @@ dist/
 __pycache__/
 *.pyc
 gerar_licenca.py 
+banco/padaria.db.backup_antes_limpeza 
+banco/*.db 
+banco/*.bak 
