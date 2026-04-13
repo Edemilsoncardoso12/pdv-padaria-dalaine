@@ -30,13 +30,27 @@ def get_base_dir():
 def verificar_versao_online():
     try:
         import ssl
-        ctx = ssl.create_default_context()
+        # Tenta com SSL padrão primeiro
+        try:
+            ctx = ssl.create_default_context()
+            req = urllib.request.Request(URL_VERSAO,
+                headers={"User-Agent": "PDV-PadariaLaine/2.0"})
+            with urllib.request.urlopen(req, timeout=8, context=ctx) as r:
+                dados = json.loads(r.read().decode())
+            return dados.get("versao"), dados.get("notas",""), dados.get("obrigatorio", False)
+        except Exception:
+            pass
+        # Fallback: ignora verificação SSL (Windows sem certificados)
+        ctx2 = ssl.create_default_context()
+        ctx2.check_hostname = False
+        ctx2.verify_mode = ssl.CERT_NONE
         req = urllib.request.Request(URL_VERSAO,
             headers={"User-Agent": "PDV-PadariaLaine/2.0"})
-        with urllib.request.urlopen(req, timeout=5, context=ctx) as r:
+        with urllib.request.urlopen(req, timeout=8, context=ctx2) as r:
             dados = json.loads(r.read().decode())
         return dados.get("versao"), dados.get("notas",""), dados.get("obrigatorio", False)
-    except Exception:
+    except Exception as e:
+        print(f"[PDV] Erro verificar versão: {e}")
         return None, "", False
 
 def baixar_e_instalar(versao_nova=""):
@@ -46,12 +60,23 @@ def baixar_e_instalar(versao_nova=""):
         zip_path = os.path.join(base, "_update.zip")
 
         import ssl
-        ctx = ssl.create_default_context()
-        req = urllib.request.Request(URL_ZIP,
-            headers={"User-Agent": "PDV-PadariaLaine/2.0"})
-        with urllib.request.urlopen(req, timeout=30, context=ctx) as r:
-            with open(zip_path, "wb") as f:
-                f.write(r.read())
+        # Tenta com SSL padrão, fallback sem verificação
+        def _baixar(url, path, timeout=60):
+            try:
+                ctx = ssl.create_default_context()
+                req = urllib.request.Request(url, headers={"User-Agent": "PDV-PadariaLaine/2.0"})
+                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
+                    with open(path, "wb") as f: f.write(r.read())
+                return True
+            except Exception:
+                ctx2 = ssl.create_default_context()
+                ctx2.check_hostname = False
+                ctx2.verify_mode = ssl.CERT_NONE
+                req = urllib.request.Request(url, headers={"User-Agent": "PDV-PadariaLaine/2.0"})
+                with urllib.request.urlopen(req, timeout=timeout, context=ctx2) as r:
+                    with open(path, "wb") as f: f.write(r.read())
+                return True
+        _baixar(URL_ZIP, zip_path)
 
         # Extrair apenas arquivos .py — nunca sobrescreve banco ou licença
         with zipfile.ZipFile(zip_path, "r") as z:
