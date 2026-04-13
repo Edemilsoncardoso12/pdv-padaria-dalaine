@@ -14,3 +14,16 @@ cupons/
 backups/
 *.ico
 .env
+licenca.key
+banco/padaria.db
+logs/
+dist/
+__pycache__/
+*.pyc
+licenca.key
+banco/padaria.db
+logs/
+dist/
+__pycache__/
+*.pyc
+gerar_licenca.py 
