@@ -39,7 +39,7 @@ def verificar_versao_online():
     except Exception:
         return None, "", False
 
-def baixar_e_instalar():
+def baixar_e_instalar(versao_nova=""):
     """Baixa e instala atualização silenciosamente"""
     try:
         base     = get_base_dir()
@@ -70,7 +70,21 @@ def baixar_e_instalar():
 
         os.remove(zip_path)
 
-        # Salvar versão instalada no versao.json local
+        # ✅ Atualiza versao.json local para evitar loop de atualização
+        if versao_nova:
+            versao_path = os.path.join(base, "versao.json")
+            try:
+                dados_versao = {"versao": versao_nova,
+                                "data": datetime.now().strftime("%Y-%m-%d"),
+                                "notas": "Atualização automática",
+                                "obrigatorio": False}
+                with open(versao_path, "w", encoding="utf-8") as f:
+                    json.dump(dados_versao, f, ensure_ascii=False, indent=4)
+                print(f"[PDV] versao.json atualizado para {versao_nova}")
+            except Exception as e:
+                print(f"[PDV] Aviso: não foi possível atualizar versao.json: {e}")
+
+        # Salvar timestamp da instalação
         ver_path = os.path.join(base, "versao_instalada.txt")
         with open(ver_path, "w") as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M"))
@@ -98,7 +112,7 @@ def verificar_atualizacao_async(callback=None):
 
             # TEM ATUALIZAÇÃO — instala silenciosamente em background
             print(f"[PDV] Atualização {versao_nova} disponível. Instalando...")
-            ok, msg = baixar_e_instalar()
+            ok, msg = baixar_e_instalar(versao_nova)
 
             if ok:
                 print(f"[PDV] Atualização instalada com sucesso!")
