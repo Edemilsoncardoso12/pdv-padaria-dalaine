@@ -1,6 +1,6 @@
 {
-    "versao": "2.1.9",
+    "versao": "2.2.0",
     "data": "2026-04-13",
-    "notas": "corre‡Æo de bugs",
-    "obrigatorio": false
+    "notas": "Correcao caixa + atualizacao automatica",
+    "obrigatorio": true
 }
