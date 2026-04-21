@@ -73,7 +73,7 @@ class TelaEstoque(ctk.CTkFrame):
         hdr.pack(fill="x", padx=4)
         for col, w in zip(self.COLS_EST, self.WIDTHS_EST):
             ctk.CTkLabel(hdr, text=col,
-                         font=("Courier New",11,"bold"),
+                         font=("Courier New",15,"bold"),
                          text_color=COR_ACENTO,
                          width=w, anchor="w").pack(side="left", padx=2)
 
@@ -118,7 +118,7 @@ class TelaEstoque(ctk.CTkFrame):
 
             for v, c, w in zip(vals, cores, self.WIDTHS_EST):
                 ctk.CTkLabel(row_inner, text=v,
-                             font=("Courier New",12),
+                             font=("Courier New",16),
                              text_color=c,
                              width=w, anchor="w").pack(side="left", padx=2)
 

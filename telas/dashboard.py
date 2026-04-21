@@ -310,7 +310,7 @@ class Dashboard(ctk.CTkFrame):
             for i in range(5):
                 y=mt+ah*i/4; canvas.create_line(ml,y,W-10,y,fill="#EEF0F4")
                 canvas.create_text(ml-6,y,text=f"{mx*(4-i)/4:.0f}",
-                                   anchor="e",font=("Courier New",8),fill=CINZA_TXT)
+                                   anchor="e",font=("Courier New",12),fill=CINZA_TXT)
             ha=datetime.now().hour
             for i,v in enumerate(dados):
                 h=8+i; x=ml+gp*i+gp/2
@@ -324,9 +324,9 @@ class Dashboard(ctk.CTkFrame):
                 elif hp>0:
                     canvas.create_rectangle(x-bw/2,y1,x+bw/2,y2,fill=cor,outline="")
                 if v>0: canvas.create_text(x,y1-4,text=f"{v:.0f}",
-                                           anchor="s",font=("Courier New",7,"bold"),fill=AZUL_ESCURO)
+                                           anchor="s",font=("Courier New",9,"bold"),fill=AZUL_ESCURO)
                 canvas.create_text(x,H-6,text=f"{h:02d}h",
-                                   anchor="s",font=("Courier New",8),fill=CINZA_TXT)
+                                   anchor="s",font=("Courier New",12),fill=CINZA_TXT)
         canvas.bind("<Configure>", draw)
         canvas.after(50, draw)
 
@@ -562,7 +562,7 @@ class Dashboard(ctk.CTkFrame):
                 canvas_pizza.create_rectangle(lx, ly, lx+12, ly+12, fill=cor, outline="")
                 nome = fp["forma_pagamento"][:12]
                 canvas_pizza.create_text(lx+16, ly+6, text=f"{nome} {pct:.0f}%",
-                                         anchor="w", font=("Courier New",8), fill=TEXTO)
+                                         anchor="w", font=("Courier New",12), fill=TEXTO)
                 ly += 18
 
         canvas_pizza.bind("<Configure>", draw_pizza)

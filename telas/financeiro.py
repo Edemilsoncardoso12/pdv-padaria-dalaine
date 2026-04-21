@@ -5,6 +5,58 @@ from datetime import datetime
 from tema import *
 from banco.database import get_conn
 
+
+
+def _geometry_responsiva(win, largura_pct=0.6, altura_pct=0.75, min_w=500, min_h=400):
+    """Ajusta a janela proporcionalmente à resolução da tela."""
+    try:
+        win.update_idletasks()
+        sw = win.winfo_screenwidth()
+        sh = win.winfo_screenheight()
+        w  = max(min_w, int(sw * largura_pct))
+        h  = max(min_h, int(sh * altura_pct))
+        x  = (sw - w) // 2
+        y  = (sh - h) // 2
+        win.geometry(f"{w}x{h}+{x}+{y}")
+        win.minsize(min_w, min_h)
+    except Exception:
+        pass
+
+def _configurar_tab_scroll(campos, scroll_frame=None):
+    """Liga Tab/Shift-Tab entre campos e faz scroll automático ao focar."""
+    entradas = [c for c in campos if hasattr(c, 'bind')]
+    for i, campo in enumerate(entradas):
+        prox  = entradas[(i + 1) % len(entradas)]
+        prev  = entradas[(i - 1) % len(entradas)]
+
+        def _ir_para(w, event=None):
+            try:
+                w.focus_set()
+                if hasattr(w, 'select_range'):
+                    w.select_range(0, 'end')
+            except Exception:
+                pass
+            return "break"
+
+        def _scroll_ao_focar(w, sf, event=None):
+            if sf is None:
+                return
+            try:
+                sf.update_idletasks()
+                canvas = sf._parent_canvas
+                cy = canvas.winfo_height()
+                wy = w.winfo_y()
+                total = sf.winfo_height()
+                if total > 0:
+                    canvas.yview_moveto(max(0, (wy - cy // 2) / total))
+            except Exception:
+                pass
+
+        campo.bind("<Tab>",       lambda e, p=prox,  sf=scroll_frame: (_ir_para(p), _scroll_ao_focar(p, sf)) and None or "break")
+        campo.bind("<Shift-Tab>", lambda e, p=prev,  sf=scroll_frame: (_ir_para(p), _scroll_ao_focar(p, sf)) and None or "break")
+        campo.bind("<FocusIn>",   lambda e, w=campo, sf=scroll_frame: _scroll_ao_focar(w, sf))
+
+
 CATEGORIAS=["Aluguel","Energia","Agua","Internet","Ingredientes","Embalagens","Salarios","Impostos","Manutencao","Outros"]
 
 def inicializar_financeiro():
@@ -46,6 +98,7 @@ class TelaFinanceiro(ctk.CTkFrame):
             ("Mes",      "#6B7280",   "#4B5563",    self._carregar_mes),
             ("Ano",      "#6B7280",   "#4B5563",    self._ano),
             ("Relatorios","#1D4ED8",  "#1E40AF",    self._ver_relatorios),
+            ("Recebimentos","#059669", "#047857",    self._ver_recebimentos),
         ]:
             ctk.CTkButton(bf,text=txt,font=FONTE_BTN,width=90,fg_color=cor,hover_color=hover,text_color="white",command=cmd).pack(side="left",padx=3)
 
@@ -68,11 +121,11 @@ class TelaFinanceiro(ctk.CTkFrame):
         frame.grid(row=2,column=0,padx=16,pady=12,sticky="nsew")
         frame.grid_rowconfigure(1,weight=1); frame.grid_columnconfigure(0,weight=1)
         cols=["Data","Tipo","Categoria","Descricao","Valor","Forma"]; pesos=[2,2,3,5,2,2]
-        cab=ctk.CTkFrame(frame,fg_color=COR_ACENTO_LIGHT,corner_radius=8,height=36)
+        cab=ctk.CTkFrame(frame,fg_color=COR_ACENTO_LIGHT,corner_radius=8, height=40)
         cab.grid(row=0,column=0,sticky="ew",padx=8,pady=(8,0)); cab.grid_propagate(False)
         for i,(c,p) in enumerate(zip(cols,pesos)):
             cab.grid_columnconfigure(i,weight=p)
-            ctk.CTkLabel(cab,text=c,font=("Courier New",10,"bold"),text_color=COR_ACENTO).grid(row=0,column=i,padx=6,pady=6,sticky="w")
+            ctk.CTkLabel(cab,text=c,font=("Courier New",14,"bold"),text_color=COR_ACENTO).grid(row=0,column=i,padx=6,pady=6,sticky="w")
         self.scroll=ctk.CTkScrollableFrame(frame,fg_color="transparent")
         self.scroll.grid(row=1,column=0,sticky="nsew",padx=8,pady=8); self.scroll.grid_columnconfigure(0,weight=1)
 
@@ -88,7 +141,7 @@ class TelaFinanceiro(ctk.CTkFrame):
         pesos=[2,2,3,5,2,2]
         for idx,l in enumerate(lancs):
             cor_bg=COR_LINHA_PAR if idx%2==0 else COR_CARD
-            row_f=ctk.CTkFrame(self.scroll,fg_color=cor_bg,corner_radius=6,height=34)
+            row_f=ctk.CTkFrame(self.scroll,fg_color=cor_bg,corner_radius=6, height=38)
             row_f.grid(row=idx,column=0,sticky="ew",pady=1); row_f.grid_propagate(False)
             for i,p in enumerate(pesos): row_f.grid_columnconfigure(i,weight=p)
             cor_t=COR_SUCESSO if l["tipo"]=="RECEITA" else COR_PERIGO
@@ -108,7 +161,7 @@ class TelaFinanceiro(ctk.CTkFrame):
         from telas.relatorios import TelaRelatorios
         win = ctk.CTkToplevel(self)
         win.title("Relatórios de Vendas")
-        win.geometry("1100x700")
+        _geometry_responsiva(win, 0.81, 0.91, 1000, 620)
         win.configure(fg_color=COR_FUNDO)
         win.grab_set()
         frame = ctk.CTkFrame(win, fg_color=COR_FUNDO, corner_radius=0)
@@ -116,6 +169,20 @@ class TelaFinanceiro(ctk.CTkFrame):
         frame.grid_columnconfigure(0, weight=1)
         frame.grid_rowconfigure(0, weight=1)
         TelaRelatorios(frame).grid(row=0, column=0, sticky="nsew")
+
+    def _ver_recebimentos(self):
+        """Abre módulo de recebimento de mercadorias"""
+        from telas.recebimento import TelaRecebimento
+        win = ctk.CTkToplevel(self)
+        win.title("Recebimento de Mercadorias")
+        _geometry_responsiva(win, 0.81, 0.91, 1000, 620)
+        win.configure(fg_color=COR_FUNDO)
+        win.grab_set()
+        frame = ctk.CTkFrame(win, fg_color=COR_FUNDO, corner_radius=0)
+        frame.pack(fill="both", expand=True)
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(0, weight=1)
+        TelaRecebimento(frame).grid(row=0, column=0, sticky="nsew")
 
 
 

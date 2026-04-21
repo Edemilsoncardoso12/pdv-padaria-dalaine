@@ -135,7 +135,7 @@ class TelaClientes(ctk.CTkFrame):
         hdr.pack(fill="x", padx=4)
         for c, w in zip(cols, WIDTHS):
             ctk.CTkLabel(hdr, text=c,
-                         font=("Courier New",11,"bold"),
+                         font=("Courier New",13,"bold"),
                          text_color=COR_ACENTO,
                          width=w, anchor="w").pack(side="left", padx=2, pady=8)
         self.scroll = ctk.CTkScrollableFrame(frame, fg_color="transparent")
@@ -175,7 +175,7 @@ class TelaClientes(ctk.CTkFrame):
             row_inner.pack(fill="x", padx=4, pady=4)
             for v, cor, w in zip(vals, cores, WIDTHS):
                 ctk.CTkLabel(row_inner, text=v,
-                             font=("Courier New",12),
+                             font=("Courier New",14),
                              text_color=cor,
                              width=w, anchor="w").pack(side="left", padx=2)
 
@@ -328,10 +328,10 @@ class TelaFiado(ctk.CTkToplevel):
         hdr.grid_columnconfigure(1, weight=1)
         nome = self.cliente.get("nome", "")
         ctk.CTkLabel(hdr, text=f"Cliente: {nome}",
-                     font=("Georgia", 14, "bold"),
+                     font=("Georgia",16, "bold"),
                      text_color=COR_ACENTO).grid(row=0, column=0, padx=16, pady=10, sticky="w")
         self.lbl_saldo = ctk.CTkLabel(hdr, text="Saldo: R$ 0,00",
-                                      font=("Georgia", 13, "bold"),
+                                      font=("Georgia",15, "bold"),
                                       text_color=COR_PERIGO)
         self.lbl_saldo.grid(row=0, column=1, padx=16, sticky="e")
         btns = ctk.CTkFrame(self, fg_color="transparent")
@@ -354,7 +354,7 @@ class TelaFiado(ctk.CTkToplevel):
         cab.grid_propagate(False)
         for i, (c, p) in enumerate(zip(cols, pesos)):
             cab.grid_columnconfigure(i, weight=p)
-            ctk.CTkLabel(cab, text=c, font=("Courier New", 10, "bold"),
+            ctk.CTkLabel(cab, text=c, font=("Courier New",12, "bold"),
                          text_color=COR_ACENTO).grid(row=0, column=i, padx=4, pady=4, sticky="w")
         self.scroll = ctk.CTkScrollableFrame(frame, fg_color="transparent")
         self.scroll.grid(row=1, column=0, sticky="nsew", padx=6, pady=6)

@@ -53,7 +53,7 @@ class TelaMenuPrincipal(ctk.CTkFrame):
         cnpj     = get_config("empresa_cnpj") or ""
         txt      = f"{nome_emp}  —  CNPJ: {cnpj}" if cnpj else nome_emp
         ctk.CTkLabel(top, text=txt,
-                     font=("Georgia",13,"bold"),
+                     font=("Georgia",17,"bold"),
                      text_color="white").grid(row=0, column=0, padx=20, pady=14, sticky="w")
 
         nome_user = self.usuario.get("nome", "")
@@ -65,18 +65,18 @@ class TelaMenuPrincipal(ctk.CTkFrame):
         self._lbl_saudacao = ctk.CTkLabel(
             info,
             text=self._get_saudacao(),
-            font=("Courier New", 11, "italic"),
+            font=("Courier New",15, "italic"),
             text_color="#FDE68A"
         )
         self._lbl_saudacao.pack(side="left", padx=(0, 10))
 
         ctk.CTkLabel(info, text=f"  {nome_user}  |  {perfil}",
-                     font=("Courier New",11), text_color="white").pack(side="left", padx=8)
-        ctk.CTkButton(info, text="Senha", font=("Courier New",10),
+                     font=("Courier New",15), text_color="white").pack(side="left", padx=8)
+        ctk.CTkButton(info, text="Senha", font=("Courier New",14),
                       fg_color="transparent", hover_color=COR_ACENTO2,
                       text_color="white", width=70, height=28,
                       command=self._alterar_senha).pack(side="left", padx=4)
-        ctk.CTkButton(info, text="Sair", font=("Courier New",10),
+        ctk.CTkButton(info, text="Sair", font=("Courier New",14),
                       fg_color="transparent", hover_color="#B91C1C",
                       text_color="white", width=60, height=28,
                       command=self._sair).pack(side="left", padx=4)
@@ -115,17 +115,17 @@ class TelaMenuPrincipal(ctk.CTkFrame):
                 self._logo_img = img
                 ctk.CTkLabel(centro, image=img, text="").pack(pady=(0,8))
             else:
-                ctk.CTkLabel(centro, text="🥐", font=("Arial",52)).pack(pady=(0,8))
+                ctk.CTkLabel(centro, text="🥐", font=("Arial",56)).pack(pady=(0,8))
         except Exception as e:
             print(f"Logo erro: {e}")
-            ctk.CTkLabel(centro, text="🥐", font=("Arial",52)).pack(pady=(0,8))
+            ctk.CTkLabel(centro, text="🥐", font=("Arial",56)).pack(pady=(0,8))
 
         nome_emp = get_config("empresa_nome") or "Padaria Da Laine"
         ctk.CTkLabel(centro, text=nome_emp,
-                     font=("Georgia",22,"bold"),
+                     font=("Georgia",26,"bold"),
                      text_color=COR_ACENTO).pack(pady=(0,2))
         ctk.CTkLabel(centro, text="PADARIA, CONFEITARIA, SALGADERIA",
-                     font=("Courier New",10),
+                     font=("Courier New",14),
                      text_color=COR_TEXTO_SUB).pack(pady=(0,16))
 
         # Grade de ícones 3x2
@@ -164,11 +164,11 @@ class TelaMenuPrincipal(ctk.CTkFrame):
             btn.grid_propagate(False)
 
             lbl_i = ctk.CTkLabel(btn, text=emoji,
-                                  font=("Arial",42), text_color=cor_icone)
+                                  font=("Arial",46), text_color=cor_icone)
             lbl_i.place(relx=0.5, rely=0.38, anchor="center")
 
             lbl_t = ctk.CTkLabel(btn, text=label,
-                                  font=("Georgia",12,"bold"),
+                                  font=("Georgia",16,"bold"),
                                   text_color=cor_texto, justify="center")
             lbl_t.place(relx=0.5, rely=0.78, anchor="center")
 
@@ -203,7 +203,7 @@ class TelaMenuPrincipal(ctk.CTkFrame):
             f.pack(fill="x", padx=16, pady=8)
 
             ctk.CTkLabel(f, text="● Caixa Aberto",
-                         font=("Georgia",12,"bold"),
+                         font=("Georgia",16,"bold"),
                          text_color=COR_SUCESSO).pack(side="left")
 
             ab = dict(cx).get("data_abertura","")[:16]
@@ -221,7 +221,7 @@ class TelaMenuPrincipal(ctk.CTkFrame):
             # Caixa fechado — botão abrir
             ctk.CTkButton(self.frame_caixa,
                           text="💰  Abrir Caixa",
-                          font=("Georgia",13,"bold"),
+                          font=("Georgia",17,"bold"),
                           height=44, width=300,
                           fg_color=COR_SUCESSO, hover_color=COR_SUCESSO2,
                           text_color="white", corner_radius=12,
@@ -251,7 +251,7 @@ class TelaMenuPrincipal(ctk.CTkFrame):
 
         ctk.CTkLabel(win, text="Fundo de caixa (R$):",
                      font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack(anchor="w", padx=24, pady=(4,2))
-        ent_fundo = ctk.CTkEntry(win, font=("Georgia",22), height=46,
+        ent_fundo = ctk.CTkEntry(win, font=("Georgia",26), height=46,
                                   justify="center",
                                   fg_color=COR_CARD2, border_color=COR_ACENTO,
                                   border_width=2, text_color=COR_TEXTO)
@@ -356,16 +356,16 @@ class TelaMenuPrincipal(ctk.CTkFrame):
             # Ícone do tipo
             icone = {"info":"ℹ️","verde":"✅","aviso":"⚠️","manutencao":"🔧"}.get(tipo,"ℹ️")
             ctk.CTkLabel(self._frame_msg, text=icone,
-                         font=("Arial", 22)).pack(pady=(14,2))
+                         font=("Arial",26)).pack(pady=(14,2))
 
             if titulo:
                 ctk.CTkLabel(self._frame_msg, text=titulo,
-                             font=("Georgia",12,"bold"),
+                             font=("Georgia",16,"bold"),
                              text_color=cor_txt,
                              wraplength=190).pack(padx=12, pady=(0,4))
             if texto:
                 ctk.CTkLabel(self._frame_msg, text=texto,
-                             font=("Courier New",10),
+                             font=("Courier New",14),
                              text_color=cor_txt,
                              wraplength=190,
                              justify="left").pack(padx=12, pady=(0,14))

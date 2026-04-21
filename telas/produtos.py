@@ -88,7 +88,7 @@ class TelaProdutos(ctk.CTkFrame):
         hdr = ctk.CTkFrame(cab, fg_color="transparent")
         hdr.pack(fill="x", padx=4)
         for c, w in zip(cols, WIDTHS):
-            ctk.CTkLabel(hdr, text=c, font=("Courier New", 10, "bold"),
+            ctk.CTkLabel(hdr, text=c, font=("Courier New",14, "bold"),
                          text_color=COR_ACENTO, width=w, anchor="w").pack(
                 side="left", padx=2, pady=8)
 
@@ -146,7 +146,7 @@ class TelaProdutos(ctk.CTkFrame):
             row_inner = ctk.CTkFrame(row_f, fg_color="transparent")
             row_inner.pack(fill="x", padx=4, pady=3)
             for v, c, w in zip(vals, cores, WIDTHS):
-                ctk.CTkLabel(row_inner, text=v, font=("Courier New", 10),
+                ctk.CTkLabel(row_inner, text=v, font=("Courier New",14),
                              text_color=c, width=w, anchor="w").pack(side="left", padx=2)
 
             i_cap = idx
@@ -198,7 +198,7 @@ class FormularioProduto(ctk.CTkToplevel):
         frame = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=6, height=28)
         frame.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(12, 4))
         frame.grid_propagate(False)
-        ctk.CTkLabel(frame, text=titulo, font=("Courier New", 11, "bold"),
+        ctk.CTkLabel(frame, text=titulo, font=("Courier New",15, "bold"),
                      text_color=COR_ACENTO).pack(anchor="w", padx=8, pady=4)
         return row + 1
 
@@ -237,13 +237,13 @@ class FormularioProduto(ctk.CTkToplevel):
                                   border_color=COR_ACENTO)
         frame_scan.pack(fill="x", padx=20, pady=(4, 8))
         ctk.CTkLabel(frame_scan, text="📷  Leitor de Código de Barras",
-                     font=("Courier New", 11, "bold"),
+                     font=("Courier New",15, "bold"),
                      text_color=COR_ACENTO).pack(anchor="w", padx=12, pady=(8, 2))
         fsr = ctk.CTkFrame(frame_scan, fg_color="transparent")
         fsr.pack(fill="x", padx=12, pady=(0, 8))
         self.ent_scan = ctk.CTkEntry(fsr,
             placeholder_text="🔍  Aponte o leitor aqui...",
-            font=("Courier New", 13), height=40,
+            font=("Courier New",17), height=40,
             fg_color=COR_CARD, border_color=COR_ACENTO,
             border_width=2, text_color=COR_TEXTO)
         self.ent_scan.pack(side="left", fill="x", expand=True, padx=(0, 8))
@@ -290,7 +290,7 @@ class FormularioProduto(ctk.CTkToplevel):
         ctk.CTkLabel(scroll, text="Margem de Lucro", font=FONTE_SMALL,
                      text_color=COR_TEXTO_SUB).grid(row=row, column=0, pady=6, sticky="w")
         self.lbl_margem = ctk.CTkLabel(scroll, text="—",
-                          font=("Georgia", 14, "bold"), text_color=COR_SUCESSO)
+                          font=("Georgia",17, "bold"), text_color=COR_SUCESSO)
         self.lbl_margem.grid(row=row, column=1, pady=6, sticky="w"); row += 1
 
         self.campos["preco_custo"].bind("<KeyRelease>", self._calcular_margem)

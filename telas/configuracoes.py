@@ -188,10 +188,10 @@ class TelaConfiguracoes(ctk.CTkFrame):
         win.configure(fg_color=COR_CARD)
         win.grab_set()
         ctk.CTkLabel(win, text="⚠️ Selecione o backup para restaurar",
-                     font=("Georgia",14,"bold"),
+                     font=("Georgia",17,"bold"),
                      text_color=COR_ACENTO).pack(pady=(20,8))
         ctk.CTkLabel(win, text="ATENÇÃO: O banco atual será substituído!",
-                     font=("Courier New",11),
+                     font=("Courier New",15),
                      text_color="#DC2626").pack(pady=(0,12))
         scroll = ctk.CTkScrollableFrame(win, fg_color=COR_FUNDO)
         scroll.pack(fill="both", expand=True, padx=16, pady=8)
@@ -199,7 +199,7 @@ class TelaConfiguracoes(ctk.CTkFrame):
         base = get_base_dir()
         for bk in backups:
             ctk.CTkButton(scroll, text=bk,
-                         font=("Courier New",11),
+                         font=("Courier New",15),
                          fg_color="transparent",
                          hover_color="#FEF3C7",
                          text_color="#1A1A2E",

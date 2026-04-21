@@ -192,7 +192,7 @@ class DialogoIngrediente(ctk.CTkToplevel):
         # Botão GRANDE e visível
         ctk.CTkButton(
             f, text="✅ ADICIONAR",
-            font=("Georgia",13,"bold"),
+            font=("Georgia",17,"bold"),
             width=160, height=40,
             fg_color=COR_SUCESSO, hover_color=COR_SUCESSO2,
             text_color="white",
@@ -211,7 +211,7 @@ class DialogoIngrediente(ctk.CTkToplevel):
             txt = f'{p["codigo_barras"] or "":>12}  {p["nome"][:35]}  ({p["unidade"]})'
             ctk.CTkButton(
                 self.scroll, text=txt,
-                font=("Courier New", 11),
+                font=("Courier New",15),
                 height=32, anchor="w",
                 fg_color="transparent",
                 hover_color=COR_ACENTO_LIGHT,

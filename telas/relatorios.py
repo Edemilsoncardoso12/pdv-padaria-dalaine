@@ -111,7 +111,7 @@ class TelaRelatorios(ctk.CTkFrame):
         cab.grid_propagate(False)
         for i,(c,p) in enumerate(zip(cols,pesos)):
             cab.grid_columnconfigure(i, weight=p)
-            ctk.CTkLabel(cab, text=c, font=("Courier New",10,"bold"),
+            ctk.CTkLabel(cab, text=c, font=("Courier New",14,"bold"),
                          text_color=COR_ACENTO).grid(row=0,column=i,padx=6,pady=6,sticky="w")
 
         self.scroll = ctk.CTkScrollableFrame(frame, fg_color="transparent")
@@ -129,7 +129,7 @@ class TelaRelatorios(ctk.CTkFrame):
         ctk.CTkLabel(card, text=titulo, font=FONTE_SMALL,
                      text_color=COR_TEXTO_SUB).pack(pady=(12,2))
         lbl = ctk.CTkLabel(card, text=valor,
-                           font=("Georgia",16,"bold"), text_color=cor)
+                           font=("Georgia",19,"bold"), text_color=cor)
         lbl.pack(pady=(0,12))
         return lbl
 
@@ -209,7 +209,7 @@ class TelaRelatorios(ctk.CTkFrame):
             y = mt + ah * i / 4
             c.create_line(ml, y, W-10, y, fill="#EEF0F4", width=1)
             c.create_text(ml-4, y, text=f"{max_val*(4-i)/4:.0f}",
-                         anchor="e", font=("Courier New",7), fill=COR_TEXTO_SUB)
+                         anchor="e", font=("Courier New",9), fill=COR_TEXTO_SUB)
 
         for i, (dia, val) in enumerate(dados):
             x = ml + gap * i + gap / 2
@@ -220,10 +220,10 @@ class TelaRelatorios(ctk.CTkFrame):
                               fill=COR_ACENTO, outline="")
             if val > 0:
                 c.create_text(x, y1-3, text=f"R${val:.0f}",
-                             anchor="s", font=("Courier New",7), fill=COR_ACENTO)
+                             anchor="s", font=("Courier New",9), fill=COR_ACENTO)
             label = dia[8:] + "/" + dia[5:7]
             c.create_text(x, H-4, text=label, anchor="s",
-                         font=("Courier New",7), fill=COR_TEXTO_SUB)
+                         font=("Courier New",9), fill=COR_TEXTO_SUB)
 
     def _carregar_ranking(self, vendas):
         # Busca ranking de produtos do período
@@ -244,9 +244,9 @@ class TelaRelatorios(ctk.CTkFrame):
                 f.pack(fill="x", pady=1)
                 f.pack_propagate(False)
                 ctk.CTkLabel(f, text=f"{i+1}. {r['nome_produto'][:25]}",
-                             font=("Courier New",10), text_color=COR_TEXTO).pack(side="left", padx=6)
+                             font=("Courier New",14), text_color=COR_TEXTO).pack(side="left", padx=6)
                 ctk.CTkLabel(f, text=f"R$ {r['total']:.2f}",
-                             font=("Courier New",10,"bold"), text_color=COR_SUCESSO).pack(side="right", padx=6)
+                             font=("Courier New",14,"bold"), text_color=COR_SUCESSO).pack(side="right", padx=6)
         except Exception:
             pass
 

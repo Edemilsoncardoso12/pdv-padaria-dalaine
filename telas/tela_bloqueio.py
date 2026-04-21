@@ -12,13 +12,13 @@ class TelaBloqueio(ctk.CTk):
         self._build(mensagem)
 
     def _build(self, mensagem):
-        ctk.CTkLabel(self, text="🔒", font=("Arial", 56)).pack(pady=(30,4))
+        ctk.CTkLabel(self, text="🔒", font=("Arial",58)).pack(pady=(30,4))
         ctk.CTkLabel(self, text="Sistema Bloqueado",
-                     font=("Georgia", 20, "bold"),
+                     font=("Georgia",22, "bold"),
                      text_color="#EF4444").pack()
         ctk.CTkFrame(self, height=1, fg_color="#333").pack(fill="x", padx=40, pady=12)
         ctk.CTkLabel(self, text=mensagem,
-                     font=("Courier New", 11),
+                     font=("Courier New",13),
                      text_color="#9CA3AF",
                      justify="center",
                      wraplength=400).pack(padx=30)
@@ -30,17 +30,17 @@ class TelaBloqueio(ctk.CTk):
             id_pc = get_id_computador()
             ctk.CTkLabel(self,
                          text=f"ID deste computador: {id_pc}",
-                         font=("Courier New", 11, "bold"),
+                         font=("Courier New",13, "bold"),
                          text_color="#F59E0B").pack()
             ctk.CTkLabel(self,
                          text="Informe este código ao desenvolvedor",
-                         font=("Courier New", 10),
+                         font=("Courier New",12),
                          text_color="#6B7280").pack()
         except Exception:
             pass
 
         ctk.CTkButton(self, text="Fechar",
-                      font=("Georgia", 12, "bold"),
+                      font=("Georgia",14, "bold"),
                       fg_color="#374151", hover_color="#4B5563",
                       text_color="white", width=120, height=38,
                       command=sys.exit).pack(pady=16)

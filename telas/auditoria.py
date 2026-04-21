@@ -206,7 +206,7 @@ class TelaAuditoria(ctk.CTkFrame):
         h.pack(fill="x", padx=4)
         for col, w in zip(cols, widths):
             ctk.CTkLabel(h, text=col,
-                         font=("Courier New", 10, "bold"),
+                         font=("Courier New",14, "bold"),
                          text_color=COR_ACENTO, width=w,
                          anchor="w").pack(side="left", padx=2, pady=6)
 
@@ -291,7 +291,7 @@ class TelaAuditoria(ctk.CTkFrame):
 
                 for v, c, w, bold in zip(vals, cores, widths, bolds):
                     ctk.CTkLabel(row, text=v,
-                                 font=("Courier New", 10,
+                                 font=("Courier New",14,
                                        "bold" if bold else "normal"),
                                  text_color=c, width=w,
                                  anchor="w").pack(side="left", padx=2)

@@ -28,7 +28,7 @@ class TelaInicial(ctk.CTkFrame):
         cnpj = get_config("empresa_cnpj") or ""
         txt  = f"{nome}  —  {cnpj}" if cnpj else nome
         ctk.CTkLabel(top, text=txt,
-                     font=("Georgia", 13, "bold"),
+                     font=("Georgia",15, "bold"),
                      text_color="white").grid(
             row=0, column=0, padx=20, pady=12, sticky="w")
 
@@ -36,7 +36,7 @@ class TelaInicial(ctk.CTkFrame):
         nome_user = self.usuario.get("nome", "")
         perfil     = self.usuario.get("perfil", "")
         ctk.CTkLabel(top, text=f"👤  {nome_user}  |  {perfil}",
-                     font=("Courier New", 11),
+                     font=("Courier New",13),
                      text_color="white").grid(
             row=0, column=1, padx=20, sticky="e")
 
@@ -62,15 +62,15 @@ class TelaInicial(ctk.CTkFrame):
             ctk.CTkLabel(logo_frame, image=img, text="").pack()
         except Exception:
             ctk.CTkLabel(logo_frame, text="🥐",
-                         font=("Arial", 80)).pack()
+                         font=("Arial",82)).pack()
 
         from banco.database import get_config
         nome_emp = get_config("empresa_nome") or "Padaria Da Laine"
         ctk.CTkLabel(logo_frame, text=nome_emp,
-                     font=("Georgia", 28, "bold"),
+                     font=("Georgia",30, "bold"),
                      text_color=COR_ACENTO).pack(pady=(12, 4))
         ctk.CTkLabel(logo_frame, text="PADARIA, CONFEITARIA, SALGADERIA",
-                     font=("Courier New", 12),
+                     font=("Courier New",14),
                      text_color=COR_TEXTO_SUB).pack()
 
         # ── Grade de ícones ───────────────────────────────────────────────────
@@ -125,7 +125,7 @@ class TelaInicial(ctk.CTkFrame):
 
             lbl_icone = ctk.CTkLabel(
                 btn_frame, text=icone,
-                font=("Arial", 34),
+                font=("Arial",36),
                 text_color=cor_icone)
             lbl_icone.place(relx=0.5, rely=0.38, anchor="center")
             if not bloqueado:
@@ -134,7 +134,7 @@ class TelaInicial(ctk.CTkFrame):
 
             lbl_texto = ctk.CTkLabel(
                 btn_frame, text=label,
-                font=("Georgia", 11, "bold"),
+                font=("Georgia",13, "bold"),
                 text_color=cor_texto,
                 justify="center")
             lbl_texto.place(relx=0.5, rely=0.78, anchor="center")

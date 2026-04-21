@@ -45,7 +45,7 @@ class PainelSeguranca(ctk.CTkToplevel):
                 cor   = COR_SUCESSO if status else COR_AVISO
 
                 ctk.CTkLabel(f, text=icone,
-                             font=("Arial",16)).grid(
+                             font=("Arial",18)).grid(
                     row=0, column=0, padx=12, pady=8)
                 ctk.CTkLabel(f, text=descricao,
                              font=FONTE_LABEL,
@@ -73,7 +73,7 @@ class PainelSeguranca(ctk.CTkToplevel):
                             border_width=2, border_color=cor_s)
         card.grid(row=row, column=0, sticky="ew", pady=12)
         ctk.CTkLabel(card, text=f"Score de Segurança: {score}%",
-                     font=("Georgia",16,"bold"),
+                     font=("Georgia",18,"bold"),
                      text_color=cor_s).pack(pady=12)
         ctk.CTkLabel(card,
                      text=f"{ok} de {total} itens OK",

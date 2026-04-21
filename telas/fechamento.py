@@ -34,18 +34,31 @@ def get_resumo_caixa(caixa_id):
     movs = conn.execute("""
         SELECT * FROM movimentacao_caixa WHERE caixa_id=? ORDER BY data_hora
     """, (caixa_id,)).fetchall()
+    vendas_detalhe = conn.execute("""
+        SELECT id, data_hora, forma_pagamento, total, troco, desconto
+        FROM vendas WHERE caixa_id=? AND status='CONCLUIDA'
+        ORDER BY data_hora ASC
+    """, (caixa_id,)).fetchall()
     conn.close()
     sangria    = sum(m["valor"] for m in movs if m["tipo"] in ("SANGRIA","RETIRADA","RECOLHIMENTO"))
     suprimento = sum(m["valor"] for m in movs if m["tipo"] == "SUPRIMENTO")
+    detalhe_por_forma = {}
+    for v in vendas_detalhe:
+        forma = v["forma_pagamento"]
+        if forma not in detalhe_por_forma:
+            detalhe_por_forma[forma] = []
+        detalhe_por_forma[forma].append(dict(v))
     return {
-        "caixa":        dict(cx) if cx else {},
-        "vendas":       [dict(v) for v in vendas],
-        "total_vendas": total_geral[0],
-        "qtde_vendas":  total_geral[1],
-        "sangria":      sangria,
-        "suprimento":   suprimento,
-        "produtos_top": [dict(p) for p in produtos_top],
-        "movimentacoes":[dict(m) for m in movs],
+        "caixa":            dict(cx) if cx else {},
+        "vendas":           [dict(v) for v in vendas],
+        "total_vendas":     total_geral[0],
+        "qtde_vendas":      total_geral[1],
+        "sangria":          sangria,
+        "suprimento":       suprimento,
+        "produtos_top":     [dict(p) for p in produtos_top],
+        "movimentacoes":    [dict(m) for m in movs],
+        "vendas_detalhe":   [dict(v) for v in vendas_detalhe],
+        "detalhe_por_forma":detalhe_por_forma,
     }
 
 
@@ -150,7 +163,7 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                       ).grid(row=0, column=2, padx=6, sticky="ew")
 
         ctk.CTkButton(btn_frame, text="🔒  FECHAR CAIXA",
-                      font=("Georgia",14,"bold"), height=48,
+                      font=("Georgia",17,"bold"), height=48,
                       fg_color=COR_PERIGO, hover_color=COR_PERIGO2,
                       text_color="white",
                       command=lambda: self._fechar(res)
@@ -205,7 +218,7 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
             ctk.CTkLabel(f, text=m["data_hora"][11:16],
                          font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack(side="left")
             ctk.CTkLabel(f, text=f"R$ {m['valor']:.2f}",
-                         font=("Georgia",12,"bold"),
+                         font=("Georgia",16,"bold"),
                          text_color=cor).pack(side="right", padx=8)
 
     def _registrar_mov(self, tipo):
@@ -229,7 +242,7 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
 
         ctk.CTkLabel(win, text="Valor (R$):", font=FONTE_SMALL,
                      text_color=COR_TEXTO_SUB).pack(anchor="w", padx=24, pady=(8,2))
-        ent_val = ctk.CTkEntry(win, font=("Georgia",18), height=40,
+        ent_val = ctk.CTkEntry(win, font=("Georgia",22), height=40,
                                justify="center",
                                fg_color=COR_CARD2, border_color=COR_ACENTO,
                                border_width=2, text_color=COR_TEXTO)
@@ -295,7 +308,7 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
         cab.grid_columnconfigure(2, weight=2)
         cab.grid_columnconfigure(3, weight=2)
         for i, c in enumerate(["Forma de Pagamento","Qtde","Total","Troco"]):
-            ctk.CTkLabel(cab, text=c, font=("Courier New",10,"bold"),
+            ctk.CTkLabel(cab, text=c, font=("Courier New",14,"bold"),
                          text_color=COR_ACENTO).grid(row=0,column=i,padx=8,pady=6,sticky="w")
 
         if res["vendas"]:
@@ -325,11 +338,11 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
         f_tot = ctk.CTkFrame(tot_f, fg_color="transparent")
         f_tot.pack(fill="x", padx=12, pady=6)
         ctk.CTkLabel(f_tot, text="TOTAL GERAL",
-                     font=("Courier New",11,"bold"),
+                     font=("Courier New",15,"bold"),
                      text_color=COR_ACENTO).pack(side="left")
         ctk.CTkLabel(f_tot,
                      text=f"{res['qtde_vendas']} vendas  —  R$ {total_v:.2f}",
-                     font=("Courier New",11,"bold"),
+                     font=("Courier New",15,"bold"),
                      text_color=COR_ACENTO).pack(side="right")
 
     def _build_produtos_top(self, parent, res):
@@ -340,7 +353,7 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
         cab.grid_columnconfigure(1, weight=2)
         cab.grid_columnconfigure(2, weight=2)
         for i, c in enumerate(["Produto","Qtde","Total"]):
-            ctk.CTkLabel(cab, text=c, font=("Courier New",10,"bold"),
+            ctk.CTkLabel(cab, text=c, font=("Courier New",14,"bold"),
                          text_color=COR_ACENTO).grid(row=0,column=i,padx=8,pady=6,sticky="w")
         if res["produtos_top"]:
             for idx, p in enumerate(res["produtos_top"]):
@@ -369,7 +382,7 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                      font=FONTE_LABEL, text_color=COR_TEXTO_SUB
                      ).grid(row=0, column=0, pady=8, sticky="w")
         self.ent_valor_final = ctk.CTkEntry(
-            parent, font=("Georgia",18), width=200, justify="center",
+            parent, font=("Georgia",22), width=200, justify="center",
             fg_color=COR_CARD2, border_color=COR_BORDA2, text_color=COR_TEXTO)
         self.ent_valor_final.insert(0, f"{saldo_esp:.2f}")
         self.ent_valor_final.grid(row=0, column=1, pady=8, padx=(12,0), sticky="w")
@@ -380,7 +393,7 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                      ).grid(row=1, column=0, pady=4, sticky="w")
         self.lbl_diferenca = ctk.CTkLabel(
             parent, text="R$ 0,00",
-            font=("Georgia",14,"bold"), text_color=COR_SUCESSO)
+            font=("Georgia",17,"bold"), text_color=COR_SUCESSO)
         self.lbl_diferenca.grid(row=1, column=1, pady=4, padx=(12,0), sticky="w")
 
     def _calcular_diferenca(self, event=None):
@@ -401,7 +414,7 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
         ctk.CTkLabel(card, text=titulo, font=FONTE_SMALL,
                      text_color=COR_TEXTO_SUB).pack(pady=(14,2))
         ctk.CTkLabel(card, text=valor,
-                     font=("Georgia",18,"bold"), text_color=cor).pack(pady=(0,14))
+                     font=("Georgia",22,"bold"), text_color=cor).pack(pady=(0,14))
 
     def _secao(self, parent, row, titulo):
         frame = ctk.CTkFrame(parent, fg_color=COR_CARD, corner_radius=12,
@@ -446,7 +459,8 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
         self._build_sem_caixa()
 
     def _gerar_pdf(self, res, valor_final=None, fechando=False):
-        """Gera PDF profissional com marca d'água do logo"""
+        """Gera PDF profissional estilo Eccus com dados da empresa,
+           resumo por forma de pagamento + detalhe de cada venda por forma."""
         try:
             import subprocess
             subprocess.run(["pip", "install", "reportlab", "--quiet",
@@ -462,7 +476,6 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                                             Paragraph, Spacer, HRFlowable)
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-            from reportlab.pdfgen import canvas as pdf_canvas
             import os, sys
 
             if getattr(sys, "frozen", False):
@@ -478,8 +491,10 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
 
             empresa = get_config("empresa_nome") or "Padaria Da Laine"
             cnpj    = get_config("empresa_cnpj") or ""
-            end     = get_config("empresa_end")  or ""
+            end_    = get_config("empresa_end")  or ""
             tel     = get_config("empresa_tel")  or ""
+            email   = get_config("empresa_email") or ""
+            cidade  = get_config("empresa_cidade") or ""
 
             COR_PRINCIPAL = colors.HexColor("#B45309")
             COR_CINZA     = colors.HexColor("#6B7280")
@@ -487,99 +502,110 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
             COR_VERM      = colors.HexColor("#DC2626")
             COR_FUNDO_TAB = colors.HexColor("#FEF3C7")
             COR_LINHA     = colors.HexColor("#F3F4F6")
+            COR_AZUL      = colors.HexColor("#1D4ED8")
+            COR_LARANJA   = colors.HexColor("#D97706")
 
-            styles = getSampleStyleSheet()
-            s_titulo = ParagraphStyle("titulo", fontSize=16, fontName="Helvetica-Bold",
-                                      textColor=COR_PRINCIPAL, alignment=TA_CENTER,
-                                      spaceAfter=4)
-            s_sub    = ParagraphStyle("sub", fontSize=10, fontName="Helvetica",
-                                      textColor=COR_CINZA, alignment=TA_CENTER,
-                                      spaceAfter=2)
-            s_label  = ParagraphStyle("label", fontSize=9, fontName="Helvetica",
-                                      textColor=COR_CINZA)
-            s_valor  = ParagraphStyle("valor", fontSize=11, fontName="Helvetica-Bold",
-                                      textColor=COR_PRINCIPAL)
+            # Cores por forma de pagamento
+            CORES_FORMA = {
+                "DINHEIRO":  colors.HexColor("#059669"),
+                "PIX":       colors.HexColor("#2563EB"),
+                "DEBITO":    colors.HexColor("#7C3AED"),
+                "CREDITO":   colors.HexColor("#DC2626"),
+                "CARTAO":    colors.HexColor("#7C3AED"),
+                "FIADO":     colors.HexColor("#D97706"),
+            }
+
+            s_titulo = ParagraphStyle("titulo", fontSize=15, fontName="Helvetica-Bold",
+                                      textColor=COR_PRINCIPAL, alignment=TA_CENTER, spaceAfter=2)
+            s_sub    = ParagraphStyle("sub", fontSize=9, fontName="Helvetica",
+                                      textColor=COR_CINZA, alignment=TA_CENTER, spaceAfter=2)
+            s_sec    = ParagraphStyle("sec", fontSize=11, fontName="Helvetica-Bold",
+                                      textColor=COR_PRINCIPAL, spaceBefore=10, spaceAfter=4)
+            s_sec2   = ParagraphStyle("sec2", fontSize=10, fontName="Helvetica-Bold",
+                                      textColor=colors.white, spaceBefore=0, spaceAfter=0)
             s_normal = ParagraphStyle("normal", fontSize=9, fontName="Helvetica",
                                       textColor=colors.black)
-            s_sec    = ParagraphStyle("sec", fontSize=11, fontName="Helvetica-Bold",
-                                      textColor=COR_PRINCIPAL, spaceBefore=12, spaceAfter=4)
 
-            # Classe para marca d'água
+            # ── Marca d'água + faixas coloridas ─────────────────────────────
             class MarcaDagua:
-                def __init__(self, logo_path):
-                    self.logo_path = logo_path
+                def __init__(self, logo_path, empresa_nome):
+                    self.logo_path   = logo_path
+                    self.empresa_nome = empresa_nome
 
                 def __call__(self, canvas_obj, doc):
                     canvas_obj.saveState()
-                    # Marca d'água logo centralizada
                     if os.path.exists(self.logo_path):
-                        canvas_obj.setFillAlpha(0.06)
-                        w = 12*cm; h = 12*cm
+                        canvas_obj.setFillAlpha(0.05)
+                        w = 10*cm; h = 10*cm
                         x = (A4[0] - w) / 2
                         y = (A4[1] - h) / 2
                         canvas_obj.drawImage(self.logo_path, x, y, w, h,
                                              preserveAspectRatio=True, mask="auto")
-                    # Linha colorida no topo
                     canvas_obj.setFillColor(COR_PRINCIPAL)
                     canvas_obj.setFillAlpha(1)
                     canvas_obj.rect(0, A4[1]-8, A4[0], 8, fill=1, stroke=0)
-                    # Linha colorida no rodapé
                     canvas_obj.rect(0, 0, A4[0], 6, fill=1, stroke=0)
-                    # Rodapé texto
                     canvas_obj.setFont("Helvetica", 7)
                     canvas_obj.setFillColor(COR_CINZA)
                     canvas_obj.drawCentredString(A4[0]/2, 12,
-                        f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')} — {empresa}")
+                        f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')} — {self.empresa_nome}")
                     canvas_obj.restoreState()
 
             doc = SimpleDocTemplate(path, pagesize=A4,
-                                    leftMargin=2*cm, rightMargin=2*cm,
-                                    topMargin=2.5*cm, bottomMargin=2*cm)
-
+                                    leftMargin=1.8*cm, rightMargin=1.8*cm,
+                                    topMargin=2.2*cm, bottomMargin=2*cm)
             story = []
 
-            # Logo + cabeçalho
+            # ── CABEÇALHO DA EMPRESA ─────────────────────────────────────────
             if os.path.exists(logo_path):
                 from reportlab.platypus import Image as RLImage
-                logo = RLImage(logo_path, width=3*cm, height=3*cm)
+                logo = RLImage(logo_path, width=2.8*cm, height=2.8*cm)
                 story.append(logo)
-                story.append(Spacer(1, 0.3*cm))
+                story.append(Spacer(1, 0.2*cm))
 
             story.append(Paragraph(empresa.upper(), s_titulo))
-            if cnpj:
-                story.append(Paragraph(f"CNPJ: {cnpj}", s_sub))
-            if end:
-                story.append(Paragraph(end, s_sub))
-            story.append(Spacer(1, 0.3*cm))
-            story.append(Paragraph("RELATÓRIO DE FECHAMENTO DE CAIXA", s_titulo))
-            story.append(HRFlowable(width="100%", thickness=2,
-                                    color=COR_PRINCIPAL, spaceAfter=8))
 
-            # Info do caixa
+            # Linha de dados da empresa
+            dados_emp = []
+            if cnpj:    dados_emp.append(f"CNPJ: {cnpj}")
+            if tel:     dados_emp.append(f"Tel: {tel}")
+            if email:   dados_emp.append(f"Email: {email}")
+            if end_:    dados_emp.append(end_)
+            if cidade:  dados_emp.append(cidade)
+            for d in dados_emp:
+                story.append(Paragraph(d, s_sub))
+
+            story.append(Spacer(1, 0.3*cm))
+            story.append(HRFlowable(width="100%", thickness=2,
+                                    color=COR_PRINCIPAL, spaceAfter=4))
+            story.append(Paragraph("RELATÓRIO DE FECHAMENTO DE CAIXA", s_titulo))
+            story.append(HRFlowable(width="100%", thickness=1,
+                                    color=COR_PRINCIPAL, spaceAfter=6))
+
+            # ── INFO DO CAIXA ────────────────────────────────────────────────
             ab = self.cx_dados.get("data_abertura","")[:16]
             fe = datetime.now().strftime("%d/%m/%Y %H:%M")
             info_data = [
-                ["Caixa Nº:", str(self.caixa_id),
-                 "Operador:", self.usuario],
-                ["Abertura:", ab,
-                 "Fechamento:", fe],
+                ["Caixa Nº:", str(self.caixa_id), "Operador:", self.usuario],
+                ["Abertura:", ab,                  "Fechamento:", fe],
             ]
-            t_info = Table(info_data, colWidths=[3*cm,5*cm,3*cm,5*cm])
+            t_info = Table(info_data, colWidths=[2.8*cm,5.5*cm,2.8*cm,5.5*cm])
             t_info.setStyle(TableStyle([
-                ("FONTNAME",    (0,0),(-1,-1), "Helvetica"),
-                ("FONTSIZE",    (0,0),(-1,-1), 9),
-                ("FONTNAME",    (0,0),(0,-1),  "Helvetica-Bold"),
-                ("FONTNAME",    (2,0),(2,-1),  "Helvetica-Bold"),
-                ("TEXTCOLOR",   (0,0),(0,-1),  COR_CINZA),
-                ("TEXTCOLOR",   (2,0),(2,-1),  COR_CINZA),
-                ("ROWBACKGROUNDS",(0,0),(-1,-1),[colors.white, COR_LINHA]),
-                ("BOTTOMPADDING",(0,0),(-1,-1),6),
-                ("TOPPADDING",  (0,0),(-1,-1),6),
+                ("FONTNAME",      (0,0),(-1,-1), "Helvetica"),
+                ("FONTSIZE",      (0,0),(-1,-1), 9),
+                ("FONTNAME",      (0,0),(0,-1),  "Helvetica-Bold"),
+                ("FONTNAME",      (2,0),(2,-1),  "Helvetica-Bold"),
+                ("TEXTCOLOR",     (0,0),(0,-1),  COR_CINZA),
+                ("TEXTCOLOR",     (2,0),(2,-1),  COR_CINZA),
+                ("ROWBACKGROUNDS",(0,0),(-1,-1), [colors.white, COR_LINHA]),
+                ("BOTTOMPADDING", (0,0),(-1,-1), 6),
+                ("TOPPADDING",    (0,0),(-1,-1), 6),
+                ("LEFTPADDING",   (0,0),(-1,-1), 4),
             ]))
             story.append(t_info)
-            story.append(Spacer(1, 0.5*cm))
+            story.append(Spacer(1, 0.4*cm))
 
-            # KPI cards
+            # ── KPI CARDS ────────────────────────────────────────────────────
             val_ini   = self.cx_dados.get("valor_inicial", 0)
             sangria   = res["sangria"]
             suprim    = res["suprimento"]
@@ -590,41 +616,41 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
             kpi_data = [
                 ["Fundo Inicial", "Total Vendas", "Sangrias/Retir.", "Saldo Esperado"],
                 [f"R$ {val_ini:.2f}", f"R$ {res['total_vendas']:.2f}",
-                 f"R$ {sangria:.2f}", f"R$ {saldo_esp:.2f}"],
+                 f"R$ {sangria:.2f}",  f"R$ {saldo_esp:.2f}"],
             ]
-            t_kpi = Table(kpi_data, colWidths=[4*cm]*4)
+            t_kpi = Table(kpi_data, colWidths=[4.1*cm]*4)
             t_kpi.setStyle(TableStyle([
-                ("BACKGROUND",  (0,0),(-1,0),  COR_PRINCIPAL),
-                ("TEXTCOLOR",   (0,0),(-1,0),  colors.white),
-                ("FONTNAME",    (0,0),(-1,0),  "Helvetica-Bold"),
-                ("FONTSIZE",    (0,0),(-1,-1), 9),
-                ("ALIGN",       (0,0),(-1,-1), "CENTER"),
-                ("BACKGROUND",  (0,1),(-1,-1), COR_FUNDO_TAB),
-                ("FONTNAME",    (0,1),(-1,-1), "Helvetica-Bold"),
-                ("FONTSIZE",    (0,1),(-1,-1), 11),
-                ("TEXTCOLOR",   (0,1),(-1,-1), COR_PRINCIPAL),
-                ("ROWBACKGROUNDS",(0,1),(-1,-1),[COR_FUNDO_TAB]),
-                ("BOX",         (0,0),(-1,-1), 1, COR_PRINCIPAL),
-                ("INNERGRID",   (0,0),(-1,-1), 0.5, colors.white),
-                ("TOPPADDING",  (0,0),(-1,-1), 8),
-                ("BOTTOMPADDING",(0,0),(-1,-1),8),
-                ("ROUNDEDCORNERS",(0,0),(-1,-1),4),
+                ("BACKGROUND",   (0,0),(-1,0),  COR_PRINCIPAL),
+                ("TEXTCOLOR",    (0,0),(-1,0),  colors.white),
+                ("FONTNAME",     (0,0),(-1,0),  "Helvetica-Bold"),
+                ("FONTSIZE",     (0,0),(-1,0),  9),
+                ("ALIGN",        (0,0),(-1,-1), "CENTER"),
+                ("BACKGROUND",   (0,1),(-1,-1), COR_FUNDO_TAB),
+                ("FONTNAME",     (0,1),(-1,-1), "Helvetica-Bold"),
+                ("FONTSIZE",     (0,1),(-1,-1), 12),
+                ("TEXTCOLOR",    (0,1),(-1,-1), COR_PRINCIPAL),
+                ("BOX",          (0,0),(-1,-1), 1, COR_PRINCIPAL),
+                ("INNERGRID",    (0,0),(-1,-1), 0.5, colors.white),
+                ("TOPPADDING",   (0,0),(-1,-1), 8),
+                ("BOTTOMPADDING",(0,0),(-1,-1), 8),
             ]))
             story.append(t_kpi)
             story.append(Spacer(1, 0.5*cm))
 
-            # Vendas por forma de pagamento
-            story.append(Paragraph("VENDAS POR FORMA DE PAGAMENTO", s_sec))
-            venda_data = [["Forma de Pagamento","Qtde","Total","Troco"]]
+            # ── RESUMO POR FORMA DE PAGAMENTO ────────────────────────────────
+            story.append(Paragraph("RESUMO POR FORMA DE PAGAMENTO", s_sec))
+            venda_data = [["Forma de Pagamento", "Qtde Vendas", "Total Recebido", "Troco Dado"]]
             for v in res["vendas"]:
                 venda_data.append([
-                    v["forma_pagamento"], str(v["qtde"]),
-                    f'R$ {v["total"]:.2f}', f'R$ {v["troco"]:.2f}'
+                    v["forma_pagamento"],
+                    str(v["qtde"]),
+                    f'R$ {v["total"]:.2f}',
+                    f'R$ {v["troco"]:.2f}'
                 ])
             venda_data.append(["TOTAL GERAL", str(res["qtde_vendas"]),
                                f'R$ {res["total_vendas"]:.2f}', ""])
 
-            t_vendas = Table(venda_data, colWidths=[7*cm,2.5*cm,4*cm,3*cm])
+            t_vendas = Table(venda_data, colWidths=[6*cm,3*cm,4.5*cm,3.1*cm])
             t_vendas.setStyle(TableStyle([
                 ("BACKGROUND",    (0,0),(-1,0),  COR_PRINCIPAL),
                 ("TEXTCOLOR",     (0,0),(-1,0),  colors.white),
@@ -641,19 +667,75 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                 ("LEFTPADDING",   (0,0),(-1,-1),  8),
             ]))
             story.append(t_vendas)
-            story.append(Spacer(1, 0.4*cm))
+            story.append(Spacer(1, 0.5*cm))
 
-            # Movimentações de caixa
+            # ── DETALHE DE VENDAS POR FORMA DE PAGAMENTO ────────────────────
+            detalhe = res.get("detalhe_por_forma", {})
+            if detalhe:
+                story.append(Paragraph("DETALHE DE VENDAS POR FORMA DE PAGAMENTO", s_sec))
+
+                for forma, vendas_f in detalhe.items():
+                    total_forma = sum(v["total"] for v in vendas_f)
+                    cor_forma   = CORES_FORMA.get(forma.upper().split("+")[0].strip(),
+                                                  COR_PRINCIPAL)
+
+                    # Cabeçalho colorido da forma
+                    cab_forma = Table(
+                        [[Paragraph(f"  {forma}  —  {len(vendas_f)} venda(s)  —  R$ {total_forma:.2f}", s_sec2)]],
+                        colWidths=[16.4*cm])
+                    cab_forma.setStyle(TableStyle([
+                        ("BACKGROUND",   (0,0),(-1,-1), cor_forma),
+                        ("TOPPADDING",   (0,0),(-1,-1), 5),
+                        ("BOTTOMPADDING",(0,0),(-1,-1), 5),
+                        ("LEFTPADDING",  (0,0),(-1,-1), 8),
+                    ]))
+                    story.append(cab_forma)
+
+                    # Linhas de cada venda
+                    det_data = [["#Venda", "Horário", "Total", "Troco", "Desconto"]]
+                    for v in vendas_f:
+                        hora = v["data_hora"][11:16] if len(v.get("data_hora","")) >= 16 else "--:--"
+                        det_data.append([
+                            f'#{v["id"]}',
+                            hora,
+                            f'R$ {v["total"]:.2f}',
+                            f'R$ {v["troco"]:.2f}',
+                            f'R$ {v.get("desconto",0):.2f}'
+                        ])
+                    det_data.append(["", "SUBTOTAL",
+                                     f"R$ {total_forma:.2f}", "", ""])
+
+                    t_det = Table(det_data, colWidths=[2.5*cm,3*cm,4*cm,4*cm,2.9*cm])
+                    t_det.setStyle(TableStyle([
+                        ("BACKGROUND",    (0,0),(-1,0),  colors.HexColor("#F3F4F6")),
+                        ("FONTNAME",      (0,0),(-1,0),  "Helvetica-Bold"),
+                        ("FONTSIZE",      (0,0),(-1,-1), 8),
+                        ("ROWBACKGROUNDS",(0,1),(-1,-2), [colors.white, COR_LINHA]),
+                        ("BACKGROUND",    (0,-1),(-1,-1), COR_FUNDO_TAB),
+                        ("FONTNAME",      (0,-1),(-1,-1), "Helvetica-Bold"),
+                        ("TEXTCOLOR",     (2,1),(2,-1),   COR_VERDE),
+                        ("BOX",           (0,0),(-1,-1),  0.5, colors.lightgrey),
+                        ("INNERGRID",     (0,0),(-1,-1),  0.25, colors.HexColor("#E5E7EB")),
+                        ("TOPPADDING",    (0,0),(-1,-1),  4),
+                        ("BOTTOMPADDING", (0,0),(-1,-1),  4),
+                        ("LEFTPADDING",   (0,0),(-1,-1),  6),
+                    ]))
+                    story.append(t_det)
+                    story.append(Spacer(1, 0.3*cm))
+
+                story.append(Spacer(1, 0.2*cm))
+
+            # ── MOVIMENTAÇÕES DE CAIXA ───────────────────────────────────────
             if res["movimentacoes"]:
                 story.append(Paragraph("MOVIMENTAÇÕES DE CAIXA", s_sec))
-                mov_data = [["Tipo","Descrição","Hora","Valor"]]
+                mov_data = [["Tipo", "Descrição", "Hora", "Valor"]]
                 for m in res["movimentacoes"]:
                     mov_data.append([
                         m["tipo"], m["descricao"][:30],
                         m["data_hora"][11:16],
                         f'R$ {m["valor"]:.2f}'
                     ])
-                t_mov = Table(mov_data, colWidths=[3.5*cm,7*cm,2*cm,4*cm])
+                t_mov = Table(mov_data, colWidths=[3.5*cm,7.5*cm,2*cm,3.6*cm])
                 t_mov.setStyle(TableStyle([
                     ("BACKGROUND",    (0,0),(-1,0),  COR_PRINCIPAL),
                     ("TEXTCOLOR",     (0,0),(-1,0),  colors.white),
@@ -669,17 +751,17 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                 story.append(t_mov)
                 story.append(Spacer(1, 0.4*cm))
 
-            # Produtos mais vendidos
+            # ── PRODUTOS MAIS VENDIDOS ───────────────────────────────────────
             if res["produtos_top"]:
                 story.append(Paragraph("PRODUTOS MAIS VENDIDOS", s_sec))
-                prod_data = [["Produto","Qtde","Total"]]
+                prod_data = [["Produto", "Qtde", "Total"]]
                 for p in res["produtos_top"]:
                     prod_data.append([
                         p["nome_produto"][:40],
                         f'{p["qtde"]:.1f}'.rstrip("0").rstrip("."),
                         f'R$ {p["total"]:.2f}'
                     ])
-                t_prod = Table(prod_data, colWidths=[9*cm,2.5*cm,5*cm])
+                t_prod = Table(prod_data, colWidths=[9.5*cm,2.5*cm,4.6*cm])
                 t_prod.setStyle(TableStyle([
                     ("BACKGROUND",    (0,0),(-1,0),  COR_PRINCIPAL),
                     ("TEXTCOLOR",     (0,0),(-1,0),  colors.white),
@@ -696,18 +778,18 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                 story.append(t_prod)
                 story.append(Spacer(1, 0.4*cm))
 
-            # Conferência final
+            # ── CONFERÊNCIA FINAL ────────────────────────────────────────────
             story.append(Paragraph("CONFERÊNCIA FINAL", s_sec))
-            sinal = "+" if diff >= 0 else ""
-            cor_diff = COR_VERDE if abs(diff) < 0.01 else COR_VERM
-            status_diff = "✓ CAIXA OK" if abs(diff) < 0.01 else "⚠ DIFERENÇA ENCONTRADA"
-            conf_data = [
-                ["Saldo Esperado:", f"R$ {saldo_esp:.2f}"],
-                ["Valor Contado:", f"R$ {vf:.2f}"],
-                ["Diferença:", f"{sinal}R$ {diff:.2f}"],
-                ["Status:", status_diff],
+            sinal      = "+" if diff >= 0 else ""
+            cor_diff   = COR_VERDE if abs(diff) < 0.01 else COR_VERM
+            status_txt = "✓ CAIXA OK" if abs(diff) < 0.01 else "⚠ DIFERENÇA ENCONTRADA"
+            conf_data  = [
+                ["Saldo Esperado:",  f"R$ {saldo_esp:.2f}"],
+                ["Valor Contado:",   f"R$ {vf:.2f}"],
+                ["Diferença:",       f"{sinal}R$ {abs(diff):.2f}"],
+                ["Status:",          status_txt],
             ]
-            t_conf = Table(conf_data, colWidths=[5*cm,11.5*cm])
+            t_conf = Table(conf_data, colWidths=[5*cm,11.6*cm])
             t_conf.setStyle(TableStyle([
                 ("FONTNAME",      (0,0),(0,-1),  "Helvetica-Bold"),
                 ("FONTSIZE",      (0,0),(-1,-1), 10),
@@ -722,23 +804,25 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
             ]))
             story.append(t_conf)
 
-            # Assinatura
+            # ── ASSINATURA ───────────────────────────────────────────────────
             story.append(Spacer(1, 1.5*cm))
-            ass_data = [["_______________________________","_______________________________"],
-                        [f"{self.usuario}","Conferente"]]
-            t_ass = Table(ass_data, colWidths=[8*cm,8*cm])
+            ass_data = [
+                ["_______________________________", "_______________________________"],
+                [f"{self.usuario}", "Conferente"],
+            ]
+            t_ass = Table(ass_data, colWidths=[8*cm, 8*cm])
             t_ass.setStyle(TableStyle([
-                ("ALIGN",   (0,0),(-1,-1),"CENTER"),
-                ("FONTSIZE",(0,0),(-1,-1),9),
-                ("TEXTCOLOR",(0,0),(-1,-1),COR_CINZA),
-                ("TOPPADDING",(0,1),(-1,1),4),
+                ("ALIGN",        (0,0),(-1,-1), "CENTER"),
+                ("FONTSIZE",     (0,0),(-1,-1), 9),
+                ("TEXTCOLOR",    (0,0),(-1,-1), COR_CINZA),
+                ("TOPPADDING",   (0,1),(-1,1),  4),
             ]))
             story.append(t_ass)
 
-            doc.build(story, onFirstPage=MarcaDagua(logo_path),
-                      onLaterPages=MarcaDagua(logo_path))
+            doc.build(story,
+                      onFirstPage=MarcaDagua(logo_path, empresa),
+                      onLaterPages=MarcaDagua(logo_path, empresa))
 
-            # Abre o PDF automaticamente
             import subprocess, platform
             if platform.system() == "Windows":
                 os.startfile(path)
@@ -758,7 +842,6 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                 parent=self)
         except Exception as e:
             messagebox.showerror("Erro ao gerar PDF", str(e), parent=self)
-
     def _imprimir_relatorio(self, res, valor_final=None):
         """Salva relatório TXT para impressora térmica"""
         try:

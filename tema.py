@@ -1,6 +1,7 @@
 """
 tema.py — Tema Claro/Branco Profissional
 Padaria Da Laine — PDV
+v2.2.7 — Fontes aumentadas para melhor legibilidade
 """
 
 # ── Cores principais ──────────────────────────────────────────────────────────
@@ -25,12 +26,13 @@ COR_LINHA_PAR   = "#FAFAFA"   # linha par da tabela
 COR_LINHA_SEL   = "#FEF3C7"   # linha selecionada
 
 # ── Fontes ────────────────────────────────────────────────────────────────────
-FONTE_TITULO    = ("Georgia", 18, "bold")
-FONTE_SUBTITULO = ("Georgia", 14, "bold")
-FONTE_LABEL     = ("Courier New", 12)
-FONTE_SMALL     = ("Courier New", 10)
-FONTE_TOTAL     = ("Georgia", 26, "bold")
-FONTE_CARD_VAL  = ("Georgia", 20, "bold")
-FONTE_BTN       = ("Georgia", 12, "bold")
-FONTE_BTN_SM    = ("Georgia", 10, "bold")
-FONTE_NAV       = ("Georgia", 12, "bold")
+# Aumentadas para melhor legibilidade (dona da padaria)
+FONTE_TITULO    = ("Georgia", 24, "bold")      # era 18
+FONTE_SUBTITULO = ("Georgia", 18, "bold")      # era 14
+FONTE_LABEL     = ("Courier New", 16)          # era 12 — campo de entrada e tabelas
+FONTE_SMALL     = ("Courier New", 14)          # era 10 — textos secundários
+FONTE_TOTAL     = ("Georgia", 30, "bold")      # era 26 — total da venda
+FONTE_CARD_VAL  = ("Georgia", 22, "bold")      # era 20 — valores nos cards
+FONTE_BTN       = ("Georgia", 15, "bold")      # era 12 — botões principais
+FONTE_BTN_SM    = ("Georgia", 15, "bold")      # era 10 — botões pequenos
+FONTE_NAV       = ("Georgia", 13, "bold")      # era 12 — navegação

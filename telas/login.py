@@ -115,10 +115,10 @@ class TelaLogin(ctk.CTkToplevel):
             ctk.CTkLabel(card, image=img, text="").pack(pady=(28,8))
         except Exception:
             ctk.CTkLabel(card, text="🥐",
-                         font=("Arial",52)).pack(pady=(28,8))
+                         font=("Arial",56)).pack(pady=(28,8))
 
         ctk.CTkLabel(card, text="Padaria Da Laine",
-                     font=("Georgia",20,"bold"),
+                     font=("Georgia",24,"bold"),
                      text_color=COR_ACENTO).pack()
         ctk.CTkLabel(card, text="Sistema PDV — Acesso Restrito",
                      font=FONTE_SMALL,
@@ -165,7 +165,7 @@ class TelaLogin(ctk.CTkToplevel):
 
         ctk.CTkLabel(card,
                      text="Admin: admin / admin123   |   Caixa: caixa / 1234",
-                     font=("Courier New",9),
+                     font=("Courier New",13),
                      text_color=COR_BORDA2).pack(pady=(0,24))
 
     def _entrar(self):
@@ -306,7 +306,7 @@ class TelaUsuarios(ctk.CTkFrame):
         for i,(c,p) in enumerate(zip(cols,pesos)):
             cab.grid_columnconfigure(i,weight=p)
             ctk.CTkLabel(cab,text=c,
-                         font=("Courier New",10,"bold"),
+                         font=("Courier New",14,"bold"),
                          text_color=COR_ACENTO).grid(
                 row=0,column=i,padx=6,pady=6,sticky="w")
         self.scroll = ctk.CTkScrollableFrame(frame, fg_color="transparent")

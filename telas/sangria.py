@@ -136,7 +136,7 @@ class TelaSangria(ctk.CTkFrame):
         cab.grid_propagate(False)
         for i, (c, p) in enumerate(zip(cols, pesos)):
             cab.grid_columnconfigure(i, weight=p)
-            ctk.CTkLabel(cab, text=c, font=("Courier New",10,"bold"),
+            ctk.CTkLabel(cab, text=c, font=("Courier New",14,"bold"),
                          text_color=COR_ACENTO).grid(
                 row=0, column=i, padx=6, pady=6, sticky="w")
 
@@ -151,7 +151,7 @@ class TelaSangria(ctk.CTkFrame):
         ctk.CTkLabel(card, text=titulo, font=FONTE_SMALL,
                      text_color=COR_TEXTO_SUB).pack(pady=(14,2))
         lbl = ctk.CTkLabel(card, text=valor,
-                           font=("Georgia",20,"bold"), text_color=cor)
+                           font=("Georgia",24,"bold"), text_color=cor)
         lbl.pack(pady=(0,14))
         return lbl
 
@@ -245,7 +245,7 @@ class DialogoMovimentacao(ctk.CTkToplevel):
                      font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack(
             anchor="w", padx=28)
         self.ent_valor = ctk.CTkEntry(
-            self, font=("Georgia",20), width=200,
+            self, font=("Georgia",24), width=200,
             justify="center",
             fg_color=COR_CARD2, border_color=cor,
             text_color=COR_TEXTO)

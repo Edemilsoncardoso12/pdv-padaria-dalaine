@@ -86,7 +86,7 @@ class BuscaProdutoWidget:
 
         tk.Label(f,
             text="  Código           Nome                           UN   Estq    Preço",
-            font=("Courier New",9,"bold"),
+            font=("Courier New",13,"bold"),
             fg="#B45309", bg="#FEF3C7", anchor="w").pack(fill="x")
 
         for i, p in enumerate(self.lista):
@@ -95,7 +95,7 @@ class BuscaProdutoWidget:
             txt  = f"  {cod:13}  {nome:28}  {p['unidade']:3}  {p['estoque_atual']:5.1f}  R${p['preco_venda']:.2f}"
             bg   = "#F5F5F0" if i % 2 == 0 else "white"
             lbl  = tk.Label(f, text=txt,
-                           font=("Courier New",11),
+                           font=("Courier New",15),
                            fg="#1A1A2E", bg=bg,
                            anchor="w", cursor="hand2")
             lbl.pack(fill="x", pady=1)
