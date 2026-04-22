@@ -184,10 +184,10 @@ class FormularioProduto(ctk.CTkToplevel):
         self.produto_id = produto_id
         self.callback   = callback
         self.title("Editar Produto" if produto_id else "Novo Produto")
-        self.geometry("680x820")
+        self.state("zoomed") if hasattr(self, "state") else self.geometry("900x900")
         self.configure(fg_color=COR_CARD)
         self.grab_set()
-        self.resizable(False, True)
+        self.resizable(True, True)
         self.campos = {}
         self._build()
         if produto_id:

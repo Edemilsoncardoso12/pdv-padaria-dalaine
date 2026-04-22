@@ -15,9 +15,32 @@ class TelaCaixa(ctk.CTkFrame):
         self.itens=[]; self.caixa_id=None; self.desconto_global=0.0
         self.cliente_venda=None; self.vendedor_atual="Operador"
         self.modo_venda="NORMAL"; self.operador_logado=None
-        self._verificar_caixa(); self._build_header(); self._build_tabela()
-        self._build_painel_direito(); self._build_rodape(); self._bind_teclas()
-        # Pedir senha ao abrir o PDV
+        # Detecta resolução para responsividade
+        self.after(1, self._init_responsivo)
+
+    def _s(self, valor):
+        """Escala valor pela resolução da tela"""
+        return max(1, int(valor * getattr(self, "_escala", 1.0)))
+
+    def _init_responsivo(self):
+        try:
+            sw = self.winfo_screenwidth()
+        except Exception:
+            sw = 1366
+        if sw < 1024:
+            self._escala = 0.75
+        elif sw < 1280:
+            self._escala = 0.85
+        elif sw < 1600:
+            self._escala = 1.0
+        else:
+            self._escala = 1.15
+        self._verificar_caixa()
+        self._build_header()
+        self._build_tabela()
+        self._build_painel_direito()
+        self._build_rodape()
+        self._bind_teclas()
         self.after(300, self._pedir_senha_operador)
 
     def _pedir_senha_operador(self):
@@ -100,7 +123,7 @@ class TelaCaixa(ctk.CTkFrame):
         ent_user.bind("<Return>",  lambda e: ent_senha.focus_set())
 
         ctk.CTkButton(win, text="✅  Entrar no Caixa",
-                      font=("Georgia",17,"bold"),
+                      font=("Georgia",13,"bold"),
                       fg_color=COR_ACENTO, hover_color=COR_ACENTO2,
                       text_color="white", height=46, corner_radius=10,
                       command=confirmar).pack(fill="x", padx=32, pady=8)
@@ -157,7 +180,7 @@ class TelaCaixa(ctk.CTkFrame):
         cab.grid(row=0,column=0,sticky="ew",padx=8,pady=(8,0)); cab.grid_propagate(False)
         for i,(col,peso) in enumerate(zip(cols,pesos)):
             cab.grid_columnconfigure(i,weight=peso)
-            ctk.CTkLabel(cab,text=col,font=("Courier New",17,"bold"),text_color=COR_ACENTO).grid(row=0,column=i,padx=8,pady=8,sticky="w")
+            ctk.CTkLabel(cab,text=col,font=("Courier New",13,"bold"),text_color=COR_ACENTO).grid(row=0,column=i,padx=8,pady=8,sticky="w")
         self.scroll_itens=ctk.CTkScrollableFrame(frame,fg_color="transparent")
         self.scroll_itens.grid(row=1,column=0,sticky="nsew",padx=8,pady=8)
         self.scroll_itens.grid_columnconfigure(0,weight=1)
@@ -184,12 +207,12 @@ class TelaCaixa(ctk.CTkFrame):
                    f'R$ {item["total_item"]:.2f}']
             cores=[COR_TEXTO_SUB,COR_TEXTO,COR_TEXTO_SUB,COR_ACENTO,COR_TEXTO_SUB,COR_TEXTO,COR_PERIGO,COR_SUCESSO]
             for i,(val,cor) in enumerate(zip(dados,cores)):
-                lbl = ctk.CTkLabel(row_f,text=val,font=("Courier New",17,"bold"),text_color=cor)
+                lbl = ctk.CTkLabel(row_f,text=val,font=("Courier New",13,"bold"),text_color=cor)
                 lbl.grid(row=0,column=i,padx=6,sticky="w")
                 lbl.bind("<Button-1>", lambda e, i=idx: self._selecionar_item(i))
             row_f.bind("<Button-1>", lambda e, i=idx: self._selecionar_item(i))
             i_cap=idx
-            ctk.CTkButton(row_f,text="✕",width=28,height=24,font=("Arial",14),fg_color=COR_PERIGO,hover_color=COR_PERIGO2,text_color="white",corner_radius=4,command=lambda i=i_cap:self._remover_item(i)).grid(row=0,column=8,padx=4)
+            ctk.CTkButton(row_f,text="✕",width=28,height=24,font=("Arial",10),fg_color=COR_PERIGO,hover_color=COR_PERIGO2,text_color="white",corner_radius=4,command=lambda i=i_cap:self._remover_item(i)).grid(row=0,column=8,padx=4)
         self._atualizar_totais()
 
     def _selecionar_item(self, idx):
@@ -220,7 +243,7 @@ class TelaCaixa(ctk.CTkFrame):
     def _build_painel_direito(self):
         painel=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=12,border_width=1,border_color=COR_BORDA)
         painel.grid(row=1,column=1,padx=(8,16),pady=12,sticky="nsew"); painel.grid_columnconfigure(0,weight=1)
-        ctk.CTkLabel(painel,text="RESUMO DA VENDA",font=("Courier New",14,"bold"),text_color=COR_ACENTO).pack(pady=(10,4))
+        ctk.CTkLabel(painel,text="RESUMO DA VENDA",font=("Courier New",10,"bold"),text_color=COR_ACENTO).pack(pady=(10,4))
         def linha_valor(label,var_attr,cor=COR_TEXTO):
             f=ctk.CTkFrame(painel,fg_color="transparent"); f.pack(fill="x",padx=20,pady=2)
             ctk.CTkLabel(f,text=label,font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack(side="left")
@@ -228,8 +251,8 @@ class TelaCaixa(ctk.CTkFrame):
             setattr(self,var_attr,lbl)
         linha_valor("Subtotal:","lbl_subtotal"); linha_valor("Desconto:","lbl_desconto",COR_PERIGO)
         ctk.CTkFrame(painel,height=1,fg_color=COR_BORDA).pack(fill="x",padx=20,pady=2)
-        self.lbl_total=ctk.CTkLabel(painel,text="R$ 0,00",font=("Georgia",26,"bold"),text_color=COR_ACENTO); self.lbl_total.pack(pady=(0,0))
-        ctk.CTkLabel(painel,text="TOTAL",font=("Courier New",14),text_color=COR_TEXTO_SUB).pack()
+        self.lbl_total=ctk.CTkLabel(painel,text="R$ 0,00",font=("Georgia",22,"bold"),text_color=COR_ACENTO); self.lbl_total.pack(pady=(0,0))
+        ctk.CTkLabel(painel,text="TOTAL",font=("Courier New",10),text_color=COR_TEXTO_SUB).pack()
         ctk.CTkFrame(painel,height=1,fg_color=COR_BORDA).pack(fill="x",padx=20,pady=2)
         f=ctk.CTkFrame(painel,fg_color="transparent"); f.pack(fill="x",padx=20,pady=2)
         ctk.CTkLabel(f,text="Itens:",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack(side="left")
@@ -248,16 +271,16 @@ class TelaCaixa(ctk.CTkFrame):
 
         ctk.CTkFrame(painel,height=1,fg_color=COR_BORDA).pack(fill="x",padx=16,pady=2)
 
-        # ── Diversos (salgados, pães, etc sem código) ──
-        ctk.CTkLabel(painel, text="🏷️ DIVERSOS",
-                     font=("Courier New",13,"bold"),
+        # ── Produto Avulso (salgados, pães, etc sem código) ──
+        ctk.CTkLabel(painel, text="🏷️ PRODUTO AVULSO",
+                     font=("Courier New",9,"bold"),
                      text_color=COR_ACENTO).pack(pady=(2,1))
 
         f_av = ctk.CTkFrame(painel, fg_color=COR_CARD2, corner_radius=8)
         f_av.pack(fill="x", padx=16, pady=(0,2))
 
         self.ent_av_desc = ctk.CTkEntry(
-            f_av, placeholder_text="Descrição (ex: Coxinha)",
+            f_av, placeholder_text="Descrição (ex: Salgado)",
             font=FONTE_SMALL, height=30,
             fg_color=COR_CARD, border_color=COR_BORDA2,
             text_color=COR_TEXTO)
@@ -308,41 +331,13 @@ class TelaCaixa(ctk.CTkFrame):
             command=self._fechar_caixa).grid(row=0,column=1,padx=(3,0),sticky="ew")
 
     def _build_rodape(self):
-        # Rodapé com linha superior mais grossa e atalhos em negrito
-        rod = ctk.CTkFrame(self, fg_color="#1F2937", corner_radius=0,
-                           border_width=0, height=38)
-        rod.grid(row=2, column=0, columnspan=2, sticky="ew")
-        rod.grid_propagate(False)
-        rod.grid_columnconfigure(2, weight=1)
-
-        self.lbl_status_cx = ctk.CTkLabel(
-            rod, text=f"● Caixa #{self.caixa_id or '?'} — Aberto",
-            font=(FONTE_SMALL[0], FONTE_SMALL[1], "bold"),
-            text_color=COR_SUCESSO)
-        self.lbl_status_cx.grid(row=0, column=0, padx=16, pady=8, sticky="w")
-
-        self.lbl_vendedor = ctk.CTkLabel(
-            rod, text=f"Operador: {self.vendedor_atual}",
-            font=(FONTE_SMALL[0], FONTE_SMALL[1], "bold"),
-            text_color="#9CA3AF")
-        self.lbl_vendedor.grid(row=0, column=1, sticky="w", padx=8)
-
-        # Atalhos em negrito, separados por  |  para melhor leitura
-        atalhos = [("F2","Clientes"), ("F3","Produtos"), ("F6","Vendedor"),
-                   ("F9","Receber"), ("ESC","Cancelar")]
-        f_atal = ctk.CTkFrame(rod, fg_color="transparent")
-        f_atal.grid(row=0, column=2, sticky="e", padx=16)
-        for i, (tecla, nome) in enumerate(atalhos):
-            ctk.CTkLabel(f_atal, text=tecla,
-                         font=(FONTE_SMALL[0], FONTE_SMALL[1], "bold"),
-                         text_color="#FDE68A").pack(side="left")
-            ctk.CTkLabel(f_atal, text=f"={nome}",
-                         font=(FONTE_SMALL[0], FONTE_SMALL[1], "bold"),
-                         text_color="#D1D5DB").pack(side="left")
-            if i < len(atalhos) - 1:
-                ctk.CTkLabel(f_atal, text="  |  ",
-                             font=(FONTE_SMALL[0], FONTE_SMALL[1]),
-                             text_color="#4B5563").pack(side="left")
+        rod=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=0,border_width=1,border_color=COR_BORDA,height=32)
+        rod.grid(row=2,column=0,columnspan=2,sticky="ew"); rod.grid_propagate(False); rod.grid_columnconfigure(2,weight=1)
+        self.lbl_status_cx=ctk.CTkLabel(rod,text=f"● Caixa #{self.caixa_id or '?'} — Aberto",font=FONTE_SMALL,text_color=COR_SUCESSO)
+        self.lbl_status_cx.grid(row=0,column=0,padx=16,pady=6,sticky="w")
+        self.lbl_vendedor=ctk.CTkLabel(rod,text=f"Vendedor: {self.vendedor_atual}",font=FONTE_SMALL,text_color=COR_TEXTO_SUB)
+        self.lbl_vendedor.grid(row=0,column=1,sticky="w",padx=8)
+        ctk.CTkLabel(rod,text="F2=Clientes  F3=Produtos  F6=Vendedor  F9=Receber  ESC=Cancelar",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).grid(row=0,column=2,sticky="e",padx=16)
 
     def _focar_busca(self):
         """Retorna foco ao campo de busca — essencial para o leitor de código de barras"""
@@ -437,7 +432,7 @@ class TelaCaixa(ctk.CTkFrame):
                 txt   = f"  {c['nome']:<30}  {c['telefone'] or '':>15}{fiado}"
                 bg    = "#F5F5F0" if i % 2 == 0 else "white"
                 lbl   = tk.Label(f_inner, text=txt,
-                                font=("Courier New",15),
+                                font=("Courier New", 11),
                                 fg="#1A1A2E", bg=bg,
                                 anchor="w", cursor="hand2")
                 lbl.pack(fill="x", pady=1)
@@ -628,8 +623,8 @@ class TelaCaixa(ctk.CTkFrame):
                 parent=self)
 
     def _adicionar_avulso(self):
-        """Adiciona diversos sem código de barras na venda"""
-        desc      = self.ent_av_desc.get().strip() or "Diversos"
+        """Adiciona produto avulso sem código de barras na venda"""
+        desc      = self.ent_av_desc.get().strip() or "Produto Avulso"
         valor_raw = self.ent_av_valor.get().strip().replace(",", ".")
         qtde_raw  = self.ent_av_qtde.get().strip().replace(",", ".")
         try:
@@ -734,7 +729,7 @@ class TelaCaixa(ctk.CTkFrame):
                 i_cap = i
                 btn = ctk.CTkButton(
                     scroll, text=txt,
-                    font=("Courier New",15),
+                    font=("Courier New", 11),
                     fg_color="transparent",
                     hover_color=COR_ACENTO_LIGHT,
                     anchor="w", height=36,
@@ -976,7 +971,7 @@ class DialogoReceber(ctk.CTkToplevel):
         ctk.CTkLabel(hdr, text="Finalizar Pagamento",
                      font=FONTE_SUBTITULO, text_color=COR_ACENTO).pack(side="left", padx=16, pady=8)
         ctk.CTkLabel(hdr, text=f"R$ {self.total:.2f}",
-                     font=("Georgia",24, "bold"),
+                     font=("Georgia", 20, "bold"),
                      text_color=COR_SUCESSO).pack(side="right", padx=16)
 
         ctk.CTkLabel(self, text="Forma:", font=FONTE_SMALL,
@@ -994,7 +989,7 @@ class DialogoReceber(ctk.CTkToplevel):
             f.grid(row=r, column=c, padx=3, pady=3, sticky="ew")
             f.pack_propagate(False)
             grade_f.grid_columnconfigure(c, weight=1)
-            ctk.CTkLabel(f, text=label, font=("Georgia",14,"bold"),
+            ctk.CTkLabel(f, text=label, font=("Georgia",10,"bold"),
                          text_color=COR_TEXTO).place(relx=0.5, rely=0.5, anchor="center")
             val_cap = val
             for w in [f] + f.winfo_children():
@@ -1013,7 +1008,7 @@ class DialogoReceber(ctk.CTkToplevel):
                  ("Vale Alim","VALE ALIMENTACAO")]
         for i, (label, val) in enumerate(tipos):
             r, c = divmod(i, 2)
-            btn = ctk.CTkButton(grade_c, text=label, font=("Courier New",14),
+            btn = ctk.CTkButton(grade_c, text=label, font=("Courier New",10),
                                 width=100, height=28,
                                 fg_color=COR_CARD, hover_color=COR_ACENTO_LIGHT,
                                 text_color=COR_TEXTO, border_width=1,
@@ -1035,7 +1030,7 @@ class DialogoReceber(ctk.CTkToplevel):
         ctk.CTkLabel(self, text="Valor recebido (R$):", font=FONTE_SMALL,
                      text_color=COR_TEXTO_SUB).pack(anchor="w", padx=16, pady=(8,2))
         self.ent_valor = ctk.CTkEntry(
-            self, font=("Georgia",26), height=42, justify="center",
+            self, font=("Georgia", 22), height=42, justify="center",
             fg_color=COR_CARD2, border_color=COR_ACENTO,
             border_width=2, text_color=COR_TEXTO)
         self.ent_valor.pack(fill="x", padx=16, pady=(0,4))
@@ -1050,7 +1045,7 @@ class DialogoReceber(ctk.CTkToplevel):
         for i, v in enumerate([5, 10, 20, 50, 100, 200]):
             grade_v.grid_columnconfigure(i, weight=1)
             ctk.CTkButton(grade_v, text=f"R${v}",
-                          font=("Georgia",13,"bold"), height=28,
+                          font=("Georgia",9,"bold"), height=28,
                           fg_color=COR_CARD2, hover_color=COR_ACENTO_LIGHT,
                           text_color=COR_TEXTO, border_width=1,
                           border_color=COR_BORDA2, corner_radius=6,
@@ -1063,10 +1058,10 @@ class DialogoReceber(ctk.CTkToplevel):
         f_troco_inner = ctk.CTkFrame(self.frame_troco, fg_color="transparent")
         f_troco_inner.pack(fill="x", padx=12, pady=8)
         ctk.CTkLabel(f_troco_inner, text="TROCO:",
-                     font=("Courier New",15,"bold"), text_color="white").pack(side="left")
+                     font=("Courier New",11,"bold"), text_color="white").pack(side="left")
         self.lbl_troco = ctk.CTkLabel(
             f_troco_inner, text="R$ 0,00",
-            font=("Georgia",26, "bold"), text_color="white")
+            font=("Georgia", 22, "bold"), text_color="white")
         self.lbl_troco.pack(side="right")
 
         ctk.CTkButton(self, text="Valor Exato",
@@ -1100,7 +1095,7 @@ class DialogoReceber(ctk.CTkToplevel):
 
         ctk.CTkButton(
             self, text="F9  CONFIRMAR PAGAMENTO",
-            font=("Georgia",17, "bold"),
+            font=("Georgia", 13, "bold"),
             fg_color=COR_SUCESSO, hover_color=COR_SUCESSO2,
             text_color="white", height=48, corner_radius=0,
             command=self._confirmar
@@ -1132,6 +1127,9 @@ class DialogoReceber(ctk.CTkToplevel):
                         border_width=2 if sel else 1)
         if forma == "CARTAO":
             self.frame_cartao.pack(fill="x", padx=16, pady=(0,4))
+            # Pré-seleciona Débito automaticamente
+            if not self.subcategoria_cartao:
+                self.after(50, lambda: self._sel_cartao("DEBITO"))
         else:
             self.frame_cartao.pack_forget()
             self.frame_parcelas.pack_forget()
@@ -1212,7 +1210,7 @@ class DialogoReceber(ctk.CTkToplevel):
                          font=FONTE_SMALL, text_color=COR_SUCESSO).pack(side="left", padx=4)
             i_cap = i
             ctk.CTkButton(f, text="X", width=22, height=18,
-                          font=("Arial",12), fg_color=COR_PERIGO,
+                          font=("Arial",8), fg_color=COR_PERIGO,
                           hover_color=COR_PERIGO2, text_color="white",
                           command=lambda i=i_cap: self._remover_pgto(i)).pack(side="right", padx=2)
 
@@ -1253,7 +1251,7 @@ class DialogoPrazo(ctk.CTkToplevel):
         self.configure(fg_color=COR_CARD); self.grab_set(); self.total=total; self.callback=callback; self._build()
     def _build(self):
         ctk.CTkLabel(self,text="📅  Venda a Prazo",font=FONTE_TITULO,text_color=COR_ACENTO).pack(pady=(24,8))
-        ctk.CTkLabel(self,text=f"Total: R$ {self.total:.2f}",font=("Georgia",22,"bold"),text_color=COR_SUCESSO).pack()
+        ctk.CTkLabel(self,text=f"Total: R$ {self.total:.2f}",font=("Georgia",18,"bold"),text_color=COR_SUCESSO).pack()
         ctk.CTkFrame(self,height=1,fg_color=COR_BORDA).pack(fill="x",padx=24,pady=12)
         ctk.CTkLabel(self,text="Prazo:",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).pack()
         self.cmb=ctk.CTkComboBox(self,values=["7 dias","15 dias","30 dias","60 dias","90 dias"],font=FONTE_LABEL,fg_color=COR_CARD2,border_color=COR_BORDA2,text_color=COR_TEXTO)

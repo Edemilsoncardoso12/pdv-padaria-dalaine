@@ -8,14 +8,39 @@ class TelaEstoque(ctk.CTkFrame):
     def __init__(self,master):
         super().__init__(master,fg_color=COR_FUNDO,corner_radius=0)
         self.grid_columnconfigure(0,weight=1); self.grid_rowconfigure(1,weight=1)
-        self.produto_selecionado=None; self._build_header(); self._build_corpo(); self._carregar()
+        self.produto_selecionado=None
+        # Detecta resolução da tela para ajuste responsivo
+        self.after(1, self._init_responsivo)
+
+    def _init_responsivo(self):
+        try:
+            sw = self.winfo_screenwidth()
+        except Exception:
+            sw = 1366
+        # Escala baseada na largura da tela
+        if sw < 1024:
+            self._escala = 0.75
+        elif sw < 1280:
+            self._escala = 0.85
+        elif sw < 1600:
+            self._escala = 1.0
+        else:
+            self._escala = 1.15
+
+        self._build_header()
+        self._build_corpo()
+        self._carregar()
+
+    def _s(self, valor):
+        """Escala um valor baseado na resolução da tela"""
+        return max(1, int(valor * self._escala))
 
     def _build_header(self):
         hdr=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=0,border_width=1,border_color=COR_BORDA,height=70)
         hdr.grid(row=0,column=0,sticky="ew"); hdr.grid_propagate(False); hdr.grid_columnconfigure(1,weight=1)
         ctk.CTkLabel(hdr,text="📊  Controle de Estoque",font=FONTE_TITULO,text_color=COR_ACENTO).grid(row=0,column=0,padx=24,pady=18,sticky="w")
         bf=ctk.CTkFrame(hdr,fg_color="transparent"); bf.grid(row=0,column=1,padx=24,sticky="e")
-        self.ent_busca = ctk.CTkEntry(bf, width=240, font=FONTE_LABEL,
+        self.ent_busca = ctk.CTkEntry(bf, width=self._s(200), font=FONTE_LABEL,
                                       placeholder_text="Pesquisar...",
                                       fg_color=COR_CARD2,
                                       border_color=COR_BORDA2,
@@ -42,6 +67,7 @@ class TelaEstoque(ctk.CTkFrame):
         self.ent_busca.bind("<KeyRelease>", on_key_est)
         self.ent_busca.bind("<Down>",       on_down_est)
         self.ent_busca.bind("<Up>",         on_up_est)
+        fsize = self._s(11)
         for txt,cor,hover,cmd in[
             ("📥 Entrada",  COR_SUCESSO, COR_SUCESSO2, self._entrada),
             ("📤 Saída",    COR_PERIGO,  COR_PERIGO2,  self._saida),
@@ -49,11 +75,15 @@ class TelaEstoque(ctk.CTkFrame):
             ("📋 Histórico","#6B7280",   "#4B5563",    self._historico),
             ("📦 Produtos", "#1D4ED8",   "#1E40AF",    self._ver_produtos),
         ]:
-            ctk.CTkButton(bf,text=txt,font=FONTE_BTN,width=100,fg_color=cor,hover_color=hover,text_color="white",command=cmd).pack(side="left",padx=4)
+            ctk.CTkButton(bf,text=txt,font=("Georgia",fsize,"bold"),fg_color=cor,hover_color=hover,text_color="white",command=cmd).pack(side="left",padx=2)
 
     # Larguras fixas em pixels para cada coluna
     COLS_EST  = ["Produto","Unid","Grupo","Estoque Atual","Estoque Mín.","Situação"]
-    WIDTHS_EST = [280, 50, 140, 120, 120, 100]
+    WIDTHS_EST_BASE = [220, 45, 110, 100, 100, 85]
+
+    @property
+    def WIDTHS_EST(self):
+        return [self._s(w) for w in self.WIDTHS_EST_BASE]
 
     def _build_corpo(self):
         frame = ctk.CTkFrame(self, fg_color=COR_CARD, corner_radius=12,
@@ -73,7 +103,7 @@ class TelaEstoque(ctk.CTkFrame):
         hdr.pack(fill="x", padx=4)
         for col, w in zip(self.COLS_EST, self.WIDTHS_EST):
             ctk.CTkLabel(hdr, text=col,
-                         font=("Courier New",15,"bold"),
+                         font=("Courier New",self._s(13),"bold"),
                          text_color=COR_ACENTO,
                          width=w, anchor="w").pack(side="left", padx=2)
 
@@ -118,7 +148,7 @@ class TelaEstoque(ctk.CTkFrame):
 
             for v, c, w in zip(vals, cores, self.WIDTHS_EST):
                 ctk.CTkLabel(row_inner, text=v,
-                             font=("Courier New",16),
+                             font=("Courier New",self._s(13)),
                              text_color=c,
                              width=w, anchor="w").pack(side="left", padx=2)
 
@@ -166,7 +196,7 @@ class TelaEstoque(ctk.CTkFrame):
         from telas.produtos import TelaProdutos
         win = ctk.CTkToplevel(self)
         win.title("Cadastro de Produtos")
-        win.geometry("1100x700")
+        win.state("zoomed")
         win.configure(fg_color=COR_FUNDO)
         win.grab_set()
         frame = ctk.CTkFrame(win, fg_color=COR_FUNDO, corner_radius=0)
@@ -179,7 +209,7 @@ class TelaEstoque(ctk.CTkFrame):
         pid=self._get_sel(); movs=listar_movimentacoes(pid)
         win = ctk.CTkToplevel(self)
         win.title("Histórico")
-        win.geometry("700x500")
+        win.state("zoomed")
         win.configure(fg_color=COR_CARD)
         win.grab_set()
         win.lift()

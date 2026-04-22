@@ -113,7 +113,7 @@ class GerenciadorSessao:
     """
     Bloqueia a tela após X minutos sem interação
     """
-    def __init__(self, app, minutos=15):
+    def __init__(self, app, minutos=480):
         self.app          = app
         self.minutos      = minutos
         self.ultimo_uso   = datetime.now()
