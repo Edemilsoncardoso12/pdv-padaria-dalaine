@@ -544,9 +544,11 @@ class TelaCaixa(ctk.CTkFrame):
             cod_plu     = codigo[1:6]          # ex: "00003"
             cod_limpo   = cod_plu.lstrip("0") or "0"  # ex: "3"
 
-            # Extrai valor total em centavos (posições 8-11)
-            valor_cents = int(codigo[8:12])
-            valor_total = valor_cents / 100     # ex: 642 → R$ 6,42
+            # Extrai valor total em centavos (posições 7-11 = 5 dígitos)
+            # Formato Toledo Prix 4: 2 PPPPP X VVVVV D
+            # onde VVVVV = 5 dígitos do valor em centavos
+            valor_cents = int(codigo[7:12])
+            valor_total = valor_cents / 100     # ex: 10784 → R$ 107,84
 
             if valor_total <= 0:
                 return False

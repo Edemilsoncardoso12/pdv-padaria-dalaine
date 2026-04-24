@@ -299,40 +299,39 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                           ).pack(fill="x", padx=24, pady=4)
 
     def _build_tabela_vendas(self, parent, res, total_v):
+        COLS = ["Forma de Pagamento", "Qtde", "Total", "Troco"]
+        WIDS = [280, 60, 120, 100]
+
         # Cabeçalho
-        cab = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=8, height=34)
+        cab = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=8, height=36)
         cab.pack(fill="x", pady=(0,2))
         cab.pack_propagate(False)
-        cab.grid_columnconfigure(0, weight=4)
-        cab.grid_columnconfigure(1, weight=1)
-        cab.grid_columnconfigure(2, weight=2)
-        cab.grid_columnconfigure(3, weight=2)
-        for i, c in enumerate(["Forma de Pagamento","Qtde","Total","Troco"]):
-            ctk.CTkLabel(cab, text=c, font=("Courier New",14,"bold"),
-                         text_color=COR_ACENTO).grid(row=0,column=i,padx=8,pady=6,sticky="w")
+        hdr = ctk.CTkFrame(cab, fg_color="transparent")
+        hdr.pack(fill="x", padx=8, pady=4)
+        for c, w in zip(COLS, WIDS):
+            ctk.CTkLabel(hdr, text=c, font=("Courier New",14,"bold"),
+                         text_color=COR_ACENTO, width=w, anchor="w").pack(side="left", padx=2)
 
         if res["vendas"]:
             for idx, v in enumerate(res["vendas"]):
                 cor_bg = COR_LINHA_PAR if idx%2==0 else COR_CARD
-                row_f = ctk.CTkFrame(parent, fg_color=cor_bg, corner_radius=6, height=32)
+                row_f = ctk.CTkFrame(parent, fg_color=cor_bg, corner_radius=6, height=34)
                 row_f.pack(fill="x", pady=1)
                 row_f.pack_propagate(False)
-                row_f.grid_columnconfigure(0, weight=4)
-                row_f.grid_columnconfigure(1, weight=1)
-                row_f.grid_columnconfigure(2, weight=2)
-                row_f.grid_columnconfigure(3, weight=2)
+                row_inner = ctk.CTkFrame(row_f, fg_color="transparent")
+                row_inner.pack(fill="x", padx=8, pady=4)
                 vals  = [v["forma_pagamento"], str(v["qtde"]),
                          f'R$ {v["total"]:.2f}', f'R$ {v["troco"]:.2f}']
                 cores = [COR_TEXTO, COR_TEXTO_SUB, COR_SUCESSO, COR_TEXTO_SUB]
-                for i, (val, cor) in enumerate(zip(vals, cores)):
-                    ctk.CTkLabel(row_f, text=val, font=FONTE_SMALL,
-                                 text_color=cor).grid(row=0,column=i,padx=8,sticky="w")
+                for val, cor, w in zip(vals, cores, WIDS):
+                    ctk.CTkLabel(row_inner, text=val, font=FONTE_SMALL,
+                                 text_color=cor, width=w, anchor="w").pack(side="left", padx=2)
         else:
             ctk.CTkLabel(parent, text="Nenhuma venda neste caixa.",
                          font=FONTE_LABEL, text_color=COR_TEXTO_SUB).pack(pady=20)
 
         # Total
-        tot_f = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=6, height=34)
+        tot_f = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=6, height=36)
         tot_f.pack(fill="x", pady=(4,0))
         tot_f.pack_propagate(False)
         f_tot = ctk.CTkFrame(tot_f, fg_color="transparent")
@@ -346,32 +345,33 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                      text_color=COR_ACENTO).pack(side="right")
 
     def _build_produtos_top(self, parent, res):
-        cab = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=8, height=34)
+        COLS = ["Produto", "Qtde", "Total"]
+        WIDS = [300, 80, 120]
+
+        cab = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=8, height=36)
         cab.pack(fill="x", pady=(0,2))
         cab.pack_propagate(False)
-        cab.grid_columnconfigure(0, weight=5)
-        cab.grid_columnconfigure(1, weight=2)
-        cab.grid_columnconfigure(2, weight=2)
-        for i, c in enumerate(["Produto","Qtde","Total"]):
-            ctk.CTkLabel(cab, text=c, font=("Courier New",14,"bold"),
-                         text_color=COR_ACENTO).grid(row=0,column=i,padx=8,pady=6,sticky="w")
+        hdr = ctk.CTkFrame(cab, fg_color="transparent")
+        hdr.pack(fill="x", padx=8, pady=4)
+        for c, w in zip(COLS, WIDS):
+            ctk.CTkLabel(hdr, text=c, font=("Courier New",14,"bold"),
+                         text_color=COR_ACENTO, width=w, anchor="w").pack(side="left", padx=2)
+
         if res["produtos_top"]:
             for idx, p in enumerate(res["produtos_top"]):
                 cor_bg = COR_LINHA_PAR if idx%2==0 else COR_CARD
-                row_f = ctk.CTkFrame(parent, fg_color=cor_bg, corner_radius=6, height=30)
+                row_f = ctk.CTkFrame(parent, fg_color=cor_bg, corner_radius=6, height=32)
                 row_f.pack(fill="x", pady=1)
                 row_f.pack_propagate(False)
-                row_f.grid_columnconfigure(0, weight=5)
-                row_f.grid_columnconfigure(1, weight=2)
-                row_f.grid_columnconfigure(2, weight=2)
-                for i, (val, cor) in enumerate(zip(
-                    [p["nome_produto"][:35],
-                     f'{p["qtde"]:.1f}'.rstrip("0").rstrip("."),
-                     f'R$ {p["total"]:.2f}'],
-                    [COR_TEXTO, COR_TEXTO_SUB, COR_SUCESSO]
-                )):
-                    ctk.CTkLabel(row_f, text=val, font=FONTE_SMALL,
-                                 text_color=cor).grid(row=0,column=i,padx=8,sticky="w")
+                row_inner = ctk.CTkFrame(row_f, fg_color="transparent")
+                row_inner.pack(fill="x", padx=8, pady=4)
+                vals = [p["nome_produto"][:35],
+                        f'{p["qtde"]:.1f}'.rstrip("0").rstrip("."),
+                        f'R$ {p["total"]:.2f}']
+                cores = [COR_TEXTO, COR_TEXTO_SUB, COR_SUCESSO]
+                for val, cor, w in zip(vals, cores, WIDS):
+                    ctk.CTkLabel(row_inner, text=val, font=FONTE_SMALL,
+                                 text_color=cor, width=w, anchor="w").pack(side="left", padx=2)
         else:
             ctk.CTkLabel(parent, text="Nenhum item vendido.",
                          font=FONTE_LABEL, text_color=COR_TEXTO_SUB).pack(pady=12)
