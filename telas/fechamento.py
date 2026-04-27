@@ -134,6 +134,7 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
 
         # ── Conferência de caixa ──────────────────────────────────────────
         sec2 = self._secao(scroll, 4, "🔍  Conferência — Valor em Caixa")
+        self._res_atual = res
         self._build_conferencia(sec2, saldo_esp)
 
         # ── Botões ────────────────────────────────────────────────────────
@@ -299,39 +300,40 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                           ).pack(fill="x", padx=24, pady=4)
 
     def _build_tabela_vendas(self, parent, res, total_v):
-        COLS = ["Forma de Pagamento", "Qtde", "Total", "Troco"]
-        WIDS = [280, 60, 120, 100]
-
         # Cabeçalho
-        cab = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=8, height=36)
+        cab = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=8, height=34)
         cab.pack(fill="x", pady=(0,2))
         cab.pack_propagate(False)
-        hdr = ctk.CTkFrame(cab, fg_color="transparent")
-        hdr.pack(fill="x", padx=8, pady=4)
-        for c, w in zip(COLS, WIDS):
-            ctk.CTkLabel(hdr, text=c, font=("Courier New",14,"bold"),
-                         text_color=COR_ACENTO, width=w, anchor="w").pack(side="left", padx=2)
+        cab.grid_columnconfigure(0, weight=4)
+        cab.grid_columnconfigure(1, weight=1)
+        cab.grid_columnconfigure(2, weight=2)
+        cab.grid_columnconfigure(3, weight=2)
+        for i, c in enumerate(["Forma de Pagamento","Qtde","Total","Troco"]):
+            ctk.CTkLabel(cab, text=c, font=("Courier New",14,"bold"),
+                         text_color=COR_ACENTO).grid(row=0,column=i,padx=8,pady=6,sticky="w")
 
         if res["vendas"]:
             for idx, v in enumerate(res["vendas"]):
                 cor_bg = COR_LINHA_PAR if idx%2==0 else COR_CARD
-                row_f = ctk.CTkFrame(parent, fg_color=cor_bg, corner_radius=6, height=34)
+                row_f = ctk.CTkFrame(parent, fg_color=cor_bg, corner_radius=6, height=32)
                 row_f.pack(fill="x", pady=1)
                 row_f.pack_propagate(False)
-                row_inner = ctk.CTkFrame(row_f, fg_color="transparent")
-                row_inner.pack(fill="x", padx=8, pady=4)
+                row_f.grid_columnconfigure(0, weight=4)
+                row_f.grid_columnconfigure(1, weight=1)
+                row_f.grid_columnconfigure(2, weight=2)
+                row_f.grid_columnconfigure(3, weight=2)
                 vals  = [v["forma_pagamento"], str(v["qtde"]),
                          f'R$ {v["total"]:.2f}', f'R$ {v["troco"]:.2f}']
                 cores = [COR_TEXTO, COR_TEXTO_SUB, COR_SUCESSO, COR_TEXTO_SUB]
-                for val, cor, w in zip(vals, cores, WIDS):
-                    ctk.CTkLabel(row_inner, text=val, font=FONTE_SMALL,
-                                 text_color=cor, width=w, anchor="w").pack(side="left", padx=2)
+                for i, (val, cor) in enumerate(zip(vals, cores)):
+                    ctk.CTkLabel(row_f, text=val, font=FONTE_SMALL,
+                                 text_color=cor).grid(row=0,column=i,padx=8,sticky="w")
         else:
             ctk.CTkLabel(parent, text="Nenhuma venda neste caixa.",
                          font=FONTE_LABEL, text_color=COR_TEXTO_SUB).pack(pady=20)
 
         # Total
-        tot_f = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=6, height=36)
+        tot_f = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=6, height=34)
         tot_f.pack(fill="x", pady=(4,0))
         tot_f.pack_propagate(False)
         f_tot = ctk.CTkFrame(tot_f, fg_color="transparent")
@@ -345,65 +347,218 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                      text_color=COR_ACENTO).pack(side="right")
 
     def _build_produtos_top(self, parent, res):
-        COLS = ["Produto", "Qtde", "Total"]
-        WIDS = [300, 80, 120]
-
-        cab = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=8, height=36)
+        cab = ctk.CTkFrame(parent, fg_color=COR_ACENTO_LIGHT, corner_radius=8, height=34)
         cab.pack(fill="x", pady=(0,2))
         cab.pack_propagate(False)
-        hdr = ctk.CTkFrame(cab, fg_color="transparent")
-        hdr.pack(fill="x", padx=8, pady=4)
-        for c, w in zip(COLS, WIDS):
-            ctk.CTkLabel(hdr, text=c, font=("Courier New",14,"bold"),
-                         text_color=COR_ACENTO, width=w, anchor="w").pack(side="left", padx=2)
-
+        cab.grid_columnconfigure(0, weight=5)
+        cab.grid_columnconfigure(1, weight=2)
+        cab.grid_columnconfigure(2, weight=2)
+        for i, c in enumerate(["Produto","Qtde","Total"]):
+            ctk.CTkLabel(cab, text=c, font=("Courier New",14,"bold"),
+                         text_color=COR_ACENTO).grid(row=0,column=i,padx=8,pady=6,sticky="w")
         if res["produtos_top"]:
             for idx, p in enumerate(res["produtos_top"]):
                 cor_bg = COR_LINHA_PAR if idx%2==0 else COR_CARD
-                row_f = ctk.CTkFrame(parent, fg_color=cor_bg, corner_radius=6, height=32)
+                row_f = ctk.CTkFrame(parent, fg_color=cor_bg, corner_radius=6, height=30)
                 row_f.pack(fill="x", pady=1)
                 row_f.pack_propagate(False)
-                row_inner = ctk.CTkFrame(row_f, fg_color="transparent")
-                row_inner.pack(fill="x", padx=8, pady=4)
-                vals = [p["nome_produto"][:35],
-                        f'{p["qtde"]:.1f}'.rstrip("0").rstrip("."),
-                        f'R$ {p["total"]:.2f}']
-                cores = [COR_TEXTO, COR_TEXTO_SUB, COR_SUCESSO]
-                for val, cor, w in zip(vals, cores, WIDS):
-                    ctk.CTkLabel(row_inner, text=val, font=FONTE_SMALL,
-                                 text_color=cor, width=w, anchor="w").pack(side="left", padx=2)
+                row_f.grid_columnconfigure(0, weight=5)
+                row_f.grid_columnconfigure(1, weight=2)
+                row_f.grid_columnconfigure(2, weight=2)
+                for i, (val, cor) in enumerate(zip(
+                    [p["nome_produto"][:35],
+                     f'{p["qtde"]:.1f}'.rstrip("0").rstrip("."),
+                     f'R$ {p["total"]:.2f}'],
+                    [COR_TEXTO, COR_TEXTO_SUB, COR_SUCESSO]
+                )):
+                    ctk.CTkLabel(row_f, text=val, font=FONTE_SMALL,
+                                 text_color=cor).grid(row=0,column=i,padx=8,sticky="w")
         else:
             ctk.CTkLabel(parent, text="Nenhum item vendido.",
                          font=FONTE_LABEL, text_color=COR_TEXTO_SUB).pack(pady=12)
 
     def _build_conferencia(self, parent, saldo_esp):
-        parent.grid_columnconfigure(1, weight=1)
-        ctk.CTkLabel(parent, text="Valor contado (R$):",
-                     font=FONTE_LABEL, text_color=COR_TEXTO_SUB
-                     ).grid(row=0, column=0, pady=8, sticky="w")
-        self.ent_valor_final = ctk.CTkEntry(
-            parent, font=("Georgia",22), width=200, justify="center",
-            fg_color=COR_CARD2, border_color=COR_BORDA2, text_color=COR_TEXTO)
-        self.ent_valor_final.insert(0, f"{saldo_esp:.2f}")
-        self.ent_valor_final.grid(row=0, column=1, pady=8, padx=(12,0), sticky="w")
-        self.ent_valor_final.bind("<KeyRelease>", self._calcular_diferenca)
+        """
+        Conferência profissional por grupo de pagamento.
+        Mostra cada venda com horário, agrupada por:
+        - 💵 Dinheiro
+        - 💳 Cartões (Débito + Crédito + Vale)
+        - 📱 PIX
+        """
+        parent.grid_columnconfigure(0, weight=1)
+        res = self._res_atual if hasattr(self, "_res_atual") else {}
+        val_ini = self.cx_dados.get("valor_inicial", 0) if hasattr(self, "cx_dados") else 0
 
-        ctk.CTkLabel(parent, text="Diferença:",
-                     font=FONTE_LABEL, text_color=COR_TEXTO_SUB
-                     ).grid(row=1, column=0, pady=4, sticky="w")
-        self.lbl_diferenca = ctk.CTkLabel(
-            parent, text="R$ 0,00",
-            font=("Georgia",17,"bold"), text_color=COR_SUCESSO)
-        self.lbl_diferenca.grid(row=1, column=1, pady=4, padx=(12,0), sticky="w")
+        # Agrupa vendas por grupo
+        grupos = {
+            "DINHEIRO": {"label": "💵  Dinheiro", "cor": COR_SUCESSO,  "vendas": [], "total": 0.0},
+            "CARTAO":   {"label": "💳  Cartões",  "cor": "#1D4ED8",    "vendas": [], "total": 0.0},
+            "PIX":      {"label": "📱  PIX",       "cor": "#0891B2",    "vendas": [], "total": 0.0},
+        }
+
+        for v in res.get("vendas_detalhe", []):
+            forma = v["forma_pagamento"].upper()
+            if "DINHEIRO" in forma:
+                grupos["DINHEIRO"]["vendas"].append(v)
+                grupos["DINHEIRO"]["total"] += v["total"]
+            elif "PIX" in forma:
+                grupos["PIX"]["vendas"].append(v)
+                grupos["PIX"]["total"] += v["total"]
+            else:
+                grupos["CARTAO"]["vendas"].append(v)
+                grupos["CARTAO"]["total"] += v["total"]
+
+        # Esperado dinheiro = vendas + fundo inicial
+        grupos["DINHEIRO"]["total_esperado"] = grupos["DINHEIRO"]["total"] + val_ini
+        grupos["CARTAO"]["total_esperado"]   = grupos["CARTAO"]["total"]
+        grupos["PIX"]["total_esperado"]      = grupos["PIX"]["total"]
+
+        self._ent_conferencia = {}
+        self._lbl_conf_diff   = {}
+
+        row = 0
+        for key, grupo in grupos.items():
+            esperado = grupo["total_esperado"]
+            cor_grupo = grupo["cor"]
+
+            # Cabeçalho do grupo
+            cab = ctk.CTkFrame(parent, fg_color=cor_grupo, corner_radius=8, height=38)
+            cab.grid(row=row, column=0, sticky="ew", pady=(8,0))
+            cab.grid_propagate(False)
+            cab.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(cab, text=grupo["label"],
+                         font=("Georgia",15,"bold"),
+                         text_color="white").grid(row=0, column=0, padx=12, pady=8, sticky="w")
+            ctk.CTkLabel(cab, text=f"Sistema: R$ {esperado:.2f}",
+                         font=("Georgia",15,"bold"),
+                         text_color="white").grid(row=0, column=1, padx=12, pady=8, sticky="e")
+            row += 1
+
+            # Lista de vendas com horário
+            if grupo["vendas"]:
+                f_vendas = ctk.CTkFrame(parent, fg_color=COR_CARD2, corner_radius=0)
+                f_vendas.grid(row=row, column=0, sticky="ew")
+                f_vendas.grid_columnconfigure(1, weight=1)
+                for idx, v in enumerate(grupo["vendas"]):
+                    cor_bg = COR_LINHA_PAR if idx%2==0 else COR_CARD
+                    lv = ctk.CTkFrame(f_vendas, fg_color=cor_bg, corner_radius=0, height=28)
+                    lv.pack(fill="x")
+                    lv.pack_propagate(False)
+                    li = ctk.CTkFrame(lv, fg_color="transparent")
+                    li.pack(fill="x", padx=8, pady=4)
+                    hora = v["data_hora"][11:16] if len(v["data_hora"]) > 10 else ""
+                    forma_curta = v["forma_pagamento"].replace("CARTAO - ","").replace("CARTAO","CARTÃO")
+                    ctk.CTkLabel(li, text=f"🕐 {hora}",
+                                 font=("Courier New",13),
+                                 text_color=COR_TEXTO_SUB, width=55, anchor="w").pack(side="left")
+                    ctk.CTkLabel(li, text=forma_curta[:20],
+                                 font=("Courier New",13),
+                                 text_color=COR_TEXTO_SUB).pack(side="left", padx=8)
+                    ctk.CTkLabel(li, text=f"R$ {v['total']:.2f}",
+                                 font=("Courier New",13,"bold"),
+                                 text_color=cor_grupo).pack(side="right")
+                row += 1
+            else:
+                ctk.CTkLabel(parent, text="  Nenhuma venda nesta forma.",
+                             font=FONTE_SMALL, text_color=COR_TEXTO_SUB).grid(
+                    row=row, column=0, sticky="w", padx=12, pady=4)
+                row += 1
+
+            # Campo para digitar o valor contado
+            f_conf = ctk.CTkFrame(parent, fg_color=COR_CARD, corner_radius=0,
+                                  border_width=1, border_color=COR_BORDA)
+            f_conf.grid(row=row, column=0, sticky="ew", pady=(0,4))
+            f_conf.grid_columnconfigure(1, weight=1)
+
+            ctk.CTkLabel(f_conf, text="Valor conferido (R$):",
+                         font=FONTE_LABEL, text_color=COR_TEXTO_SUB).grid(
+                row=0, column=0, padx=12, pady=8, sticky="w")
+
+            ent = ctk.CTkEntry(f_conf, font=("Georgia",18), width=140,
+                               justify="center", placeholder_text="0,00",
+                               fg_color=COR_CARD2, border_color=cor_grupo,
+                               border_width=2, text_color=COR_TEXTO)
+            ent.grid(row=0, column=1, padx=8, pady=8, sticky="e")
+
+            lbl_diff = ctk.CTkLabel(f_conf, text="",
+                                    font=("Georgia",14,"bold"),
+                                    text_color=COR_TEXTO_SUB)
+            lbl_diff.grid(row=1, column=0, columnspan=2, padx=12, pady=(0,8), sticky="e")
+
+            self._ent_conferencia[key] = (ent, esperado)
+            self._lbl_conf_diff[key]   = lbl_diff
+            ent.bind("<KeyRelease>", self._calcular_diferenca)
+            row += 1
+
+        # Diferença total
+        ctk.CTkFrame(parent, height=2, fg_color=COR_BORDA).grid(
+            row=row, column=0, sticky="ew", pady=8)
+        row += 1
+
+        self.frame_diferenca = ctk.CTkFrame(parent, fg_color=COR_CARD2,
+                                            corner_radius=8, border_width=2,
+                                            border_color=COR_BORDA)
+        self.frame_diferenca.grid(row=row, column=0, sticky="ew", pady=4)
+        fd = ctk.CTkFrame(self.frame_diferenca, fg_color="transparent")
+        fd.pack(fill="x", padx=12, pady=12)
+        ctk.CTkLabel(fd, text="💰  Diferença total do caixa:",
+                     font=("Georgia",16,"bold"),
+                     text_color=COR_TEXTO_SUB).pack(side="left")
+        self.lbl_diferenca = ctk.CTkLabel(fd, text="—",
+                                          font=("Georgia",24,"bold"),
+                                          text_color=COR_TEXTO_SUB)
+        self.lbl_diferenca.pack(side="right")
+        row += 1
+
+        self.lbl_status = ctk.CTkLabel(parent, text="Preencha os campos para conferir",
+                                       font=FONTE_LABEL, text_color=COR_TEXTO_SUB)
+        self.lbl_status.grid(row=row, column=0, pady=4)
 
     def _calcular_diferenca(self, event=None):
         try:
-            contado = float(self.ent_valor_final.get().replace(",","."))
-            diff    = contado - self.saldo_esperado
-            cor     = COR_SUCESSO if abs(diff) < 0.01 else COR_PERIGO
-            sinal   = "+" if diff >= 0 else ""
-            self.lbl_diferenca.configure(
-                text=f"{sinal}R$ {diff:.2f}", text_color=cor)
+            total_contado    = 0.0
+            algum_preenchido = False
+
+            for key, (ent, esperado) in self._ent_conferencia.items():
+                val_txt = ent.get().strip().replace(",",".")
+                if val_txt:
+                    algum_preenchido = True
+                    contado = float(val_txt)
+                    total_contado += contado
+                    diff_forma = contado - esperado
+                    cor   = COR_SUCESSO if abs(diff_forma) < 0.01 else COR_PERIGO
+                    sinal = "+" if diff_forma >= 0 else ""
+                    self._lbl_conf_diff[key].configure(
+                        text=f"Diferença: {sinal}R$ {diff_forma:.2f}",
+                        text_color=cor)
+                else:
+                    self._lbl_conf_diff[key].configure(text="")
+
+            if not algum_preenchido:
+                self.lbl_diferenca.configure(text="—", text_color=COR_TEXTO_SUB)
+                self.lbl_status.configure(
+                    text="Preencha os campos para conferir",
+                    text_color=COR_TEXTO_SUB)
+                return
+
+            diff = total_contado - self.saldo_esperado
+            cor  = COR_SUCESSO if abs(diff) < 0.01 else COR_PERIGO
+            sinal = "+" if diff >= 0 else ""
+            self.lbl_diferenca.configure(text=f"{sinal}R$ {diff:.2f}", text_color=cor)
+            self.frame_diferenca.configure(border_color=cor)
+
+            if abs(diff) < 0.01:
+                self.lbl_status.configure(
+                    text="✅  Caixa conferido! Valores batem perfeitamente.",
+                    text_color=COR_SUCESSO)
+            elif diff > 0:
+                self.lbl_status.configure(
+                    text=f"⚠️  Sobrou R$ {abs(diff):.2f} no caixa.",
+                    text_color=COR_AVISO)
+            else:
+                self.lbl_status.configure(
+                    text=f"❌  Faltam R$ {abs(diff):.2f} no caixa!",
+                    text_color=COR_PERIGO)
         except Exception:
             pass
 
@@ -430,18 +585,29 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
         return inner
 
     def _fechar(self, res):
-        try:
-            valor_final = float(self.ent_valor_final.get().replace(",","."))
-        except ValueError:
-            messagebox.showerror("Erro","Valor inválido."); return
+        # Calcula valor total contado nos campos de conferência
+        valor_final = 0.0
+        algum_preenchido = False
+        if hasattr(self, "_ent_conferencia") and self._ent_conferencia:
+            for key, (ent, esperado) in self._ent_conferencia.items():
+                val_txt = ent.get().strip().replace(",",".")
+                if val_txt:
+                    try:
+                        valor_final += float(val_txt)
+                        algum_preenchido = True
+                    except ValueError:
+                        pass
+        # Se nenhum campo preenchido usa saldo esperado
+        if not algum_preenchido:
+            valor_final = self.saldo_esperado
 
-        diff = valor_final - self.saldo_esperado
+        diff  = valor_final - self.saldo_esperado
         sinal = "+" if diff >= 0 else ""
-        msg_diff = f"✅ Caixa OK!" if abs(diff) < 0.01 else f"⚠️ Diferença: {sinal}R$ {diff:.2f}"
+        msg_diff = "✅ Caixa OK!" if abs(diff) < 0.01 else f"⚠️ Diferença: {sinal}R$ {diff:.2f}"
 
         if not messagebox.askyesno("Fechar Caixa",
             f"Confirma o fechamento?\n\n"
-            f"Total vendas:  R$ {res['total_vendas']:.2f}\n"
+            f"Total vendas:   R$ {res['total_vendas']:.2f}\n"
             f"Saldo esperado: R$ {self.saldo_esperado:.2f}\n"
             f"Valor contado:  R$ {valor_final:.2f}\n"
             f"{msg_diff}\n\n"
@@ -454,9 +620,19 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
         messagebox.showinfo("✅ Caixa Fechado",
                             "Caixa fechado com sucesso!\nRelatório salvo em cupons\\")
         self.caixa_id = None
-        for w in self.winfo_children(): w.destroy()
-        self._build_header()
-        self._build_sem_caixa()
+        # Fecha a janela toplevel pai em vez de destruir filhos
+        try:
+            toplevel = self.winfo_toplevel()
+            if str(toplevel) != str(self):
+                toplevel.destroy()
+            else:
+                for w in self.winfo_children():
+                    try: w.destroy()
+                    except Exception: pass
+                self._build_header()
+                self._build_sem_caixa()
+        except Exception:
+            pass
 
     def _gerar_pdf(self, res, valor_final=None, fechando=False):
         """Gera PDF profissional estilo Eccus com dados da empresa,
