@@ -10,8 +10,11 @@ from banco.database import get_conn, caixa_aberto, fechar_caixa, get_config
 try:
     from sangria import DialogoMovimentacao as _DlgMov, registrar_movimentacao as _RegMov
 except Exception:
-    _DlgMov = None
-    _RegMov = None
+    try:
+        from telas.sangria import DialogoMovimentacao as _DlgMov, registrar_movimentacao as _RegMov
+    except Exception:
+        _DlgMov = None
+        _RegMov = None
 
 
 import re as _re
@@ -158,16 +161,18 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                 row=0, column=1, padx=8, sticky="w")
             bf = ctk.CTkFrame(hdr, fg_color="transparent")
             bf.grid(row=0, column=2, padx=16, sticky="e")
-            for txt, cor, hover, tipo in [
-                ("📤 Retirada",     COR_PERIGO,  COR_PERIGO2,  "RETIRADA"),
-                ("📥 Suprimento",   COR_SUCESSO, COR_SUCESSO2, "SUPRIMENTO"),
-                ("💰 Recolhimento", "#6B7280",   "#4B5563",    "RECOLHIMENTO"),
-                ("🧾 Despesa",      "#B45309",   "#92400E",    "DESPESA"),
-            ]:
-                ctk.CTkButton(bf, text=txt, font=FONTE_BTN, height=36,
-                             fg_color=cor, hover_color=hover, text_color="white",
-                             command=lambda t=tipo: self._nova_movimentacao(t)
-                             ).pack(side="left", padx=3)
+            ctk.CTkButton(bf, text="📤 Retirada", font=FONTE_BTN, height=36,
+                         fg_color=COR_PERIGO, hover_color=COR_PERIGO2, text_color="white",
+                         command=self._mov_retirada).pack(side="left", padx=3)
+            ctk.CTkButton(bf, text="📥 Suprimento", font=FONTE_BTN, height=36,
+                         fg_color=COR_SUCESSO, hover_color=COR_SUCESSO2, text_color="white",
+                         command=self._mov_suprimento).pack(side="left", padx=3)
+            ctk.CTkButton(bf, text="💰 Recolhimento", font=FONTE_BTN, height=36,
+                         fg_color="#6B7280", hover_color="#4B5563", text_color="white",
+                         command=self._mov_recolhimento).pack(side="left", padx=3)
+            ctk.CTkButton(bf, text="🧾 Despesa", font=FONTE_BTN, height=36,
+                         fg_color="#B45309", hover_color="#92400E", text_color="white",
+                         command=self._mov_despesa).pack(side="left", padx=3)
 
     def _build_sem_caixa(self):
         f = ctk.CTkFrame(self, fg_color=COR_CARD, corner_radius=12)
@@ -583,6 +588,11 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
             self._build_sem_caixa()
 
     # ── MOVIMENTAÇÃO RÁPIDA ───────────────────────────────────────────────────
+    def _mov_retirada(self):    self._nova_movimentacao("RETIRADA")
+    def _mov_suprimento(self):  self._nova_movimentacao("SUPRIMENTO")
+    def _mov_recolhimento(self): self._nova_movimentacao("RECOLHIMENTO")
+    def _mov_despesa(self):     self._nova_movimentacao("DESPESA")
+
     def _nova_movimentacao(self, tipo):
         import importlib.util, os, sys
         DlgMov = _DlgMov
