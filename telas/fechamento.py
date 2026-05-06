@@ -53,12 +53,33 @@ def get_resumo_caixa(caixa_id):
     conn = get_conn()
     cx = conn.execute("SELECT * FROM caixa WHERE id=?", (caixa_id,)).fetchone()
 
-    vendas = conn.execute("""
-        SELECT forma_pagamento, COUNT(*) as qtde,
-               SUM(total) as total, SUM(troco) as troco
+    # Busca vendas individuais para agrupar corretamente por forma
+    vendas_raw = conn.execute("""
+        SELECT forma_pagamento, total, troco
         FROM vendas WHERE caixa_id=? AND status='CONCLUIDA'
-        GROUP BY forma_pagamento ORDER BY total DESC
+        ORDER BY data_hora
     """, (caixa_id,)).fetchall()
+
+    # Agrupa por forma REAL (usando _extrair_grupos para formas mistas)
+    _grupos_tmp = {}
+    for vr in vendas_raw:
+        partes = _extrair_grupos(vr["forma_pagamento"], vr["total"])
+        for g, val in partes.items():
+            if g not in _grupos_tmp:
+                _grupos_tmp[g] = {"forma_pagamento": g, "qtde": 0, "total": 0.0, "troco": 0.0}
+            _grupos_tmp[g]["qtde"]  += 1
+            _grupos_tmp[g]["total"] += val
+            _grupos_tmp[g]["troco"] += vr["troco"]
+
+    # Converte para lista compatível
+    import sqlite3
+    vendas_list = sorted(_grupos_tmp.values(), key=lambda x: x["total"], reverse=True)
+
+    # Cria objetos compatíveis com dict
+    class _Row(dict):
+        def __getitem__(self, k): return super().__getitem__(k)
+
+    vendas = [_Row(v) for v in vendas_list]
 
     total_geral = conn.execute("""
         SELECT COALESCE(SUM(total),0), COUNT(*)
@@ -428,30 +449,56 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                      font=("Georgia",13,"bold"), text_color="#1D4ED8").pack(
             anchor="w", padx=16, pady=(10,2))
         ctk.CTkLabel(frame,
-                     text="Marque as formas já conferidas na maquininha/app e clique em Dar Baixa",
+                     text="Marque, confira o valor na maquininha/app e ajuste se necessario",
                      font=FONTE_SMALL, text_color=COR_TEXTO_SUB).pack(
-            anchor="w", padx=16, pady=(0,6))
+            anchor="w", padx=16, pady=(0,4))
+
+        # Cabeçalho colunas
+        cab = ctk.CTkFrame(frame, fg_color="#1D4ED8", corner_radius=6, height=28)
+        cab.pack(fill="x", padx=12, pady=(0,4))
+        cab.pack_propagate(False)
+        ctk.CTkLabel(cab, text="  Forma", font=("Courier New",11,"bold"),
+                     text_color="white").pack(side="left", padx=8, pady=4)
+        ctk.CTkLabel(cab, text="Maquininha/App", font=("Courier New",11,"bold"),
+                     text_color="white").pack(side="right", padx=12, pady=4)
+        ctk.CTkLabel(cab, text="Sistema", font=("Courier New",11,"bold"),
+                     text_color="white").pack(side="right", padx=12, pady=4)
 
         self._checks_baixa = {}
+        self._ents_baixa   = {}
+
         for g, valor in formas_pendentes.items():
-            lf = ctk.CTkFrame(frame, fg_color=COR_LINHA_PAR, corner_radius=6, height=36)
+            lf = ctk.CTkFrame(frame, fg_color=COR_LINHA_PAR, corner_radius=6, height=42)
             lf.pack(fill="x", padx=12, pady=2)
             lf.pack_propagate(False)
+
             var = ctk.BooleanVar(value=False)
             ctk.CTkCheckBox(lf, text=f"  {g}", variable=var,
                            font=("Courier New",12,"bold"), text_color=COR_TEXTO,
                            fg_color="#1D4ED8", hover_color="#1E40AF").pack(
-                side="left", padx=12, pady=6)
+                side="left", padx=12, pady=8)
+
+            # Campo valor conferido na maquininha
+            ent = ctk.CTkEntry(lf, font=("Courier New",12), width=120,
+                               justify="center",
+                               fg_color=COR_CARD, border_color="#1D4ED8",
+                               border_width=2, text_color=COR_TEXTO)
+            ent.insert(0, f"{valor:.2f}")
+            ent.pack(side="right", padx=12, pady=6)
+
+            # Valor do sistema
             ctk.CTkLabel(lf, text=f"R$ {valor:.2f}",
-                         font=("Courier New",12,"bold"),
-                         text_color=COR_SUCESSO).pack(side="right", padx=16, pady=6)
+                         font=("Courier New",12), text_color=COR_TEXTO_SUB,
+                         width=100, anchor="e").pack(side="right", padx=4, pady=6)
+
             self._checks_baixa[g] = (var, valor)
+            self._ents_baixa[g]   = ent
 
         ctk.CTkButton(frame, text="✅  Dar Baixa nas Selecionadas",
                       font=FONTE_BTN, height=38, corner_radius=8,
                       fg_color="#1D4ED8", hover_color="#1E40AF", text_color="white",
                       command=self._confirmar_baixa).pack(
-            fill="x", padx=12, pady=(4,10))
+            fill="x", padx=12, pady=(6,10))
 
         return row + 1
 
@@ -470,7 +517,19 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
                 messagebox.showerror("Erro", f"Nao foi possivel registrar:\n{e}")
                 return
 
-        selecionadas = [(g, v) for g, (var, v) in self._checks_baixa.items() if var.get()]
+        selecionadas = []
+        for g, (var, valor_sistema) in self._checks_baixa.items():
+            if var.get():
+                # Pega valor digitado na maquininha/app
+                ent = self._ents_baixa.get(g)
+                try:
+                    valor_real = float(ent.get().replace(",",".")) if ent else valor_sistema
+                    if valor_real <= 0:
+                        valor_real = valor_sistema
+                except Exception:
+                    valor_real = valor_sistema
+                selecionadas.append((g, valor_real))
+
         if not selecionadas:
             messagebox.showwarning("Atencao", "Marque pelo menos uma forma!")
             return
@@ -478,7 +537,7 @@ class TelaFechamentoCaixa(ctk.CTkFrame):
         for g, valor in selecionadas:
             registrar(self.caixa_id, "RECOLHIMENTO", valor, g, self.usuario)
 
-        nomes = ", ".join(g for g, _ in selecionadas)
+        nomes = ", ".join(f"{g}: R$ {v:.2f}" for g, v in selecionadas)
         messagebox.showinfo("Baixa Registrada", f"Recolhimento registrado:\n{nomes}")
         self._recarregar()
 
