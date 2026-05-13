@@ -14,7 +14,9 @@ set /p VERSAO="Nova versao (ex: 2.2.8): "
 
 REM ── Atualiza versao.json com Python (encoding correto!) ──
 echo Atualizando versao.json...
-python -c "import json; dados={'versao':'%VERSAO%','data':'2026-04-21','notas':'Fontes maiores + recebimento mercadorias + validade produtos + responsividade + Tab campos + PDF melhorado','obrigatorio':False}; open('versao.json','w',encoding='utf-8').write(json.dumps(dados,indent=4,ensure_ascii=False)); print('versao.json atualizado!')"
+set /p NOTAS="Notas da versao: "
+set /p OBRIG="Obrigatoria? (s/n): "
+python -c "import json,datetime; obrig='%OBRIG%'.strip().lower()=='s'; dados={'versao':'%VERSAO%','data':datetime.date.today().isoformat(),'notas':'%NOTAS%','obrigatorio':obrig}; open('versao.json','w',encoding='utf-8').write(json.dumps(dados,indent=4,ensure_ascii=False)); print('versao.json atualizado!')"
 
 REM ── Copia versao.json para dist se existir ──
 if exist dist\PDV_Padaria_DaLaine\versao.json (

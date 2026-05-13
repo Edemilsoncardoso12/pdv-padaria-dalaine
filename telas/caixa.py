@@ -15,32 +15,9 @@ class TelaCaixa(ctk.CTkFrame):
         self.itens=[]; self.caixa_id=None; self.desconto_global=0.0
         self.cliente_venda=None; self.vendedor_atual="Operador"
         self.modo_venda="NORMAL"; self.operador_logado=None
-        # Detecta resolução para responsividade
-        self.after(1, self._init_responsivo)
-
-    def _s(self, valor):
-        """Escala valor pela resolução da tela"""
-        return max(1, int(valor * getattr(self, "_escala", 1.0)))
-
-    def _init_responsivo(self):
-        try:
-            sw = self.winfo_screenwidth()
-        except Exception:
-            sw = 1366
-        if sw < 1024:
-            self._escala = 0.75
-        elif sw < 1280:
-            self._escala = 0.85
-        elif sw < 1600:
-            self._escala = 1.0
-        else:
-            self._escala = 1.15
-        self._verificar_caixa()
-        self._build_header()
-        self._build_tabela()
-        self._build_painel_direito()
-        self._build_rodape()
-        self._bind_teclas()
+        self._verificar_caixa(); self._build_header(); self._build_tabela()
+        self._build_painel_direito(); self._build_rodape(); self._bind_teclas()
+        # Pedir senha ao abrir o PDV
         self.after(300, self._pedir_senha_operador)
 
     def _pedir_senha_operador(self):
@@ -172,17 +149,15 @@ class TelaCaixa(ctk.CTkFrame):
 
     def _build_tabela(self):
         frame=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=12,border_width=1,border_color=COR_BORDA)
-        frame.grid(row=1,column=0,padx=(8,4),pady=8,sticky="nsew")
+        frame.grid(row=1,column=0,padx=(16,8),pady=12,sticky="nsew")
         frame.grid_rowconfigure(1,weight=1); frame.grid_columnconfigure(0,weight=1)
-        COLS_CAB = ["#","Descrição","Cód.Barras","Qtde","Unit.","Desc","Total",""]
-        WIDS_CAB = [30, 200, 130, 50, 90, 80, 90, 30]
-        cab=ctk.CTkFrame(frame,fg_color=COR_ACENTO_LIGHT,corner_radius=8,height=44)
+        cols=["#","Descrição","Cód.Barras","Qtde","Unit.","Desc","Total",""]
+        pesos=[1,5,3,1,2,2,2,1]
+        cab=ctk.CTkFrame(frame,fg_color=COR_ACENTO_LIGHT,corner_radius=8,height=48)
         cab.grid(row=0,column=0,sticky="ew",padx=8,pady=(8,0)); cab.grid_propagate(False)
-        hdr_inner = ctk.CTkFrame(cab, fg_color="transparent")
-        hdr_inner.pack(fill="x", padx=4, pady=4)
-        for col, w in zip(COLS_CAB, WIDS_CAB):
-            ctk.CTkLabel(hdr_inner, text=col, font=("Courier New",13,"bold"),
-                        text_color=COR_ACENTO, width=w, anchor="w").pack(side="left", padx=2)
+        for i,(col,peso) in enumerate(zip(cols,pesos)):
+            cab.grid_columnconfigure(i,weight=peso)
+            ctk.CTkLabel(cab,text=col,font=("Courier New",13,"bold"),text_color=COR_ACENTO).grid(row=0,column=i,padx=8,pady=8,sticky="w")
         self.scroll_itens=ctk.CTkScrollableFrame(frame,fg_color="transparent")
         self.scroll_itens.grid(row=1,column=0,sticky="nsew",padx=8,pady=8)
         self.scroll_itens.grid_columnconfigure(0,weight=1)
@@ -195,32 +170,26 @@ class TelaCaixa(ctk.CTkFrame):
         for w in self.scroll_itens.winfo_children(): w.destroy()
         if not self.itens: self._linha_vazia(); self._atualizar_totais(); return
         self._item_selecionado = getattr(self, "_item_selecionado", None)
-        WIDS_ROW = [30, 200, 130, 50, 90, 80, 90, 30]
+        pesos=[1,6,3,2,2,2,2,2,1]
         for idx,item in enumerate(self.itens):
             selecionado = (self._item_selecionado == idx)
             cor_bg = "#D1E8FF" if selecionado else (COR_LINHA_PAR if idx%2==0 else COR_CARD)
-            row_f=ctk.CTkFrame(self.scroll_itens,fg_color=cor_bg,corner_radius=6,height=44)
-            row_f.pack(fill="x", pady=1)
-            row_f.pack_propagate(False)
-            row_inner = ctk.CTkFrame(row_f, fg_color="transparent")
-            row_inner.pack(fill="x", padx=4, pady=4)
-            dados=[str(idx+1),item["nome_produto"][:28],item["codigo_barras"] or "",
-                   f'{item["quantidade"]:.2f}'.rstrip("0").rstrip("."),
+            row_f=ctk.CTkFrame(self.scroll_itens,fg_color=cor_bg,corner_radius=6,height=52)
+            row_f.grid(row=idx,column=0,sticky="ew",pady=1); row_f.grid_propagate(False)
+            for i,p in enumerate(pesos): row_f.grid_columnconfigure(i,weight=p)
+            peso_txt=f'{item.get("peso",0):.3f}' if item.get("peso",0)>0 else "—"
+            dados=[str(idx+1),item["nome_produto"][:35],item["codigo_barras"] or "",
+                   f'{item["quantidade"]:.3f}'.rstrip("0").rstrip("."),peso_txt,
                    f'R$ {item["preco_unitario"]:.2f}',f'R$ {item.get("desconto",0):.2f}',
                    f'R$ {item["total_item"]:.2f}']
-            cores=[COR_TEXTO_SUB,COR_TEXTO,COR_TEXTO_SUB,COR_ACENTO,COR_TEXTO,COR_PERIGO,COR_SUCESSO]
-            for val, cor, w in zip(dados, cores, WIDS_ROW):
-                lbl = ctk.CTkLabel(row_inner, text=val, font=("Courier New",13,"bold"),
-                                  text_color=cor, width=w, anchor="w")
-                lbl.pack(side="left", padx=2)
+            cores=[COR_TEXTO_SUB,COR_TEXTO,COR_TEXTO_SUB,COR_ACENTO,COR_TEXTO_SUB,COR_TEXTO,COR_PERIGO,COR_SUCESSO]
+            for i,(val,cor) in enumerate(zip(dados,cores)):
+                lbl = ctk.CTkLabel(row_f,text=val,font=("Courier New",13,"bold"),text_color=cor)
+                lbl.grid(row=0,column=i,padx=6,sticky="w")
                 lbl.bind("<Button-1>", lambda e, i=idx: self._selecionar_item(i))
-            row_inner.bind("<Button-1>", lambda e, i=idx: self._selecionar_item(i))
             row_f.bind("<Button-1>", lambda e, i=idx: self._selecionar_item(i))
             i_cap=idx
-            ctk.CTkButton(row_inner,text="✕",width=28,height=24,font=("Arial",10),
-                         fg_color=COR_PERIGO,hover_color=COR_PERIGO2,text_color="white",
-                         corner_radius=4,
-                         command=lambda i=i_cap:self._remover_item(i)).pack(side="left",padx=2)
+            ctk.CTkButton(row_f,text="✕",width=28,height=24,font=("Arial",10),fg_color=COR_PERIGO,hover_color=COR_PERIGO2,text_color="white",corner_radius=4,command=lambda i=i_cap:self._remover_item(i)).grid(row=0,column=8,padx=4)
         self._atualizar_totais()
 
     def _selecionar_item(self, idx):
@@ -250,7 +219,7 @@ class TelaCaixa(ctk.CTkFrame):
 
     def _build_painel_direito(self):
         painel=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=12,border_width=1,border_color=COR_BORDA)
-        painel.grid(row=1,column=1,padx=(4,8),pady=8,sticky="nsew"); painel.grid_columnconfigure(0,weight=1)
+        painel.grid(row=1,column=1,padx=(8,16),pady=12,sticky="nsew"); painel.grid_columnconfigure(0,weight=1)
         ctk.CTkLabel(painel,text="RESUMO DA VENDA",font=("Courier New",10,"bold"),text_color=COR_ACENTO).pack(pady=(10,4))
         def linha_valor(label,var_attr,cor=COR_TEXTO):
             f=ctk.CTkFrame(painel,fg_color="transparent"); f.pack(fill="x",padx=20,pady=2)
@@ -339,45 +308,13 @@ class TelaCaixa(ctk.CTkFrame):
             command=self._fechar_caixa).grid(row=0,column=1,padx=(3,0),sticky="ew")
 
     def _build_rodape(self):
-        # Rodapé escuro com borda superior forte
-        rod = ctk.CTkFrame(self, fg_color="#1F2937", corner_radius=0,
-                           border_width=0, height=42)
-        rod.grid(row=2, column=0, columnspan=2, sticky="ew")
-        rod.grid_propagate(False)
-        rod.grid_columnconfigure(2, weight=1)
-
-        # Linha superior destacada
-        sep = ctk.CTkFrame(rod, fg_color=COR_ACENTO, height=3, corner_radius=0)
-        sep.place(x=0, y=0, relwidth=1)
-
-        self.lbl_status_cx = ctk.CTkLabel(
-            rod, text=f"● Caixa #{self.caixa_id or '?'} — Aberto",
-            font=(FONTE_SMALL[0], FONTE_SMALL[1], "bold"),
-            text_color=COR_SUCESSO)
-        self.lbl_status_cx.grid(row=0, column=0, padx=16, pady=10, sticky="w")
-
-        self.lbl_vendedor = ctk.CTkLabel(
-            rod, text=f"Operador: {self.vendedor_atual}",
-            font=(FONTE_SMALL[0], FONTE_SMALL[1], "bold"),
-            text_color="#9CA3AF")
-        self.lbl_vendedor.grid(row=0, column=1, sticky="w", padx=8)
-
-        # Atalhos em negrito com cores distintas
-        f_atal = ctk.CTkFrame(rod, fg_color="transparent")
-        f_atal.grid(row=0, column=2, sticky="e", padx=16)
-        atalhos = [("F2","Clientes"), ("F3","Produtos"), ("F6","Vendedor"),
-                   ("F9","Receber"), ("ESC","Cancelar")]
-        for i, (tecla, nome) in enumerate(atalhos):
-            ctk.CTkLabel(f_atal, text=tecla,
-                         font=(FONTE_SMALL[0], FONTE_SMALL[1], "bold"),
-                         text_color="#FDE68A").pack(side="left")
-            ctk.CTkLabel(f_atal, text=f"={nome}",
-                         font=(FONTE_SMALL[0], FONTE_SMALL[1], "bold"),
-                         text_color="#D1D5DB").pack(side="left")
-            if i < len(atalhos) - 1:
-                ctk.CTkLabel(f_atal, text="  |  ",
-                             font=(FONTE_SMALL[0], FONTE_SMALL[1]),
-                             text_color="#4B5563").pack(side="left")
+        rod=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=0,border_width=1,border_color=COR_BORDA,height=32)
+        rod.grid(row=2,column=0,columnspan=2,sticky="ew"); rod.grid_propagate(False); rod.grid_columnconfigure(2,weight=1)
+        self.lbl_status_cx=ctk.CTkLabel(rod,text=f"● Caixa #{self.caixa_id or '?'} — Aberto",font=FONTE_SMALL,text_color=COR_SUCESSO)
+        self.lbl_status_cx.grid(row=0,column=0,padx=16,pady=6,sticky="w")
+        self.lbl_vendedor=ctk.CTkLabel(rod,text=f"Vendedor: {self.vendedor_atual}",font=FONTE_SMALL,text_color=COR_TEXTO_SUB)
+        self.lbl_vendedor.grid(row=0,column=1,sticky="w",padx=8)
+        ctk.CTkLabel(rod,text="F2=Clientes  F3=Produtos  F6=Vendedor  F9=Receber  ESC=Cancelar",font=FONTE_SMALL,text_color=COR_TEXTO_SUB).grid(row=0,column=2,sticky="e",padx=16)
 
     def _focar_busca(self):
         """Retorna foco ao campo de busca — essencial para o leitor de código de barras"""
@@ -879,6 +816,25 @@ class TelaCaixa(ctk.CTkFrame):
 
     def _receber(self):
         if not self.itens: messagebox.showwarning("Venda vazia","Adicione produtos."); return
+        # ── Bloquear venda sem caixa aberto ──────────────────────────────────
+        if not self.caixa_id:
+            resp = messagebox.askyesno(
+                "⚠️ Caixa não aberto",
+                "Nenhum caixa aberto!\n\n"
+                "Todas as vendas realizadas sem caixa aberto\n"
+                "NÃO aparecem no fechamento.\n\n"
+                "Deseja abrir o caixa agora?",
+                icon="warning"
+            )
+            if resp:
+                self._dialogo_abrir_caixa()
+            if not self.caixa_id:
+                messagebox.showwarning(
+                    "Venda bloqueada",
+                    "Abra o caixa antes de realizar vendas."
+                )
+                return
+        # ─────────────────────────────────────────────────────────────────────
         subtotal=sum(i["total_item"] for i in self.itens); total=max(0,subtotal-self.desconto_global)
         modo=self.cmb_modo.get()
         if modo=="ORÇAMENTO": self._salvar_orcamento(total); return
@@ -993,7 +949,7 @@ class DialogoReceber(ctk.CTkToplevel):
     def __init__(self, master, total, callback):
         super().__init__(master)
         self.title("Finalizar Pagamento")
-        self.geometry("480x640")
+        self.geometry("480x600")
         self.configure(fg_color=COR_CARD)
         self.grab_set()
         self.resizable(False, False)
@@ -1014,16 +970,11 @@ class DialogoReceber(ctk.CTkToplevel):
                      font=("Georgia", 20, "bold"),
                      text_color=COR_SUCESSO).pack(side="right", padx=16)
 
-        # ── Frame principal para toda a seção de pagamento ──
-        scroll_main = ctk.CTkFrame(self, fg_color="transparent")
-        scroll_main.pack(fill="both", expand=True, padx=0, pady=(0,0))
-        scroll_main.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(scroll_main, text="Forma:", font=FONTE_SMALL,
+        ctk.CTkLabel(self, text="Forma:", font=FONTE_SMALL,
                      text_color=COR_TEXTO_SUB).pack(anchor="w", padx=16, pady=(8,2))
         self.btns_forma = {}
-        grade_f = ctk.CTkFrame(scroll_main, fg_color="transparent")
-        grade_f.pack(fill="x", padx=16, pady=(0,4))
+        grade_f = ctk.CTkFrame(self, fg_color="transparent")
+        grade_f.pack(fill="x", padx=16)
         formas = [("Dinheiro","DINHEIRO"),("PIX","PIX"),
                   ("Cartao","CARTAO"),("Fiado","FIADO")]
         for i, (label, val) in enumerate(formas):
@@ -1042,53 +993,40 @@ class DialogoReceber(ctk.CTkToplevel):
                 except: pass
             self.btns_forma[val] = f
 
-        # ── Frame de Cartão (inicialmente oculto) ──
-        self.frame_cartao = ctk.CTkFrame(scroll_main, fg_color=COR_ACENTO_LIGHT,
+        self.frame_cartao = ctk.CTkFrame(self, fg_color=COR_ACENTO_LIGHT,
                                           corner_radius=8, border_width=1,
                                           border_color=COR_ACENTO)
-        self.frame_cartao.pack(fill="x", padx=16, pady=(0,4))
-        self.frame_cartao.pack_forget()  # Oculto inicialmente
-        
-        ctk.CTkLabel(self.frame_cartao, text="Tipo de Cartão:",
-                     font=FONTE_SMALL, text_color=COR_ACENTO).pack(anchor="w", padx=8, pady=(4,2))
-        
         self.btns_cartao = {}
         grade_c = ctk.CTkFrame(self.frame_cartao, fg_color="transparent")
-        grade_c.pack(padx=4, pady=(0,4), fill="x")
-        
-        tipos = [("🔴 Débito","DEBITO"),("🔵 Crédito","CREDITO"),
-                 ("💳 Crédito Parcelado","CREDITO PARCELADO"),
-                 ("🎫 Vale Alimentação","VALE ALIMENTACAO")]
+        grade_c.pack(padx=4, pady=4)
+        tipos = [("Debito","DEBITO"),("Credito","CREDITO"),
+                 ("Cred Parc","CREDITO PARCELADO"),
+                 ("Vale Alim","VALE ALIMENTACAO")]
         for i, (label, val) in enumerate(tipos):
             r, c = divmod(i, 2)
             btn = ctk.CTkButton(grade_c, text=label, font=("Courier New",10),
-                                width=100, height=32,
+                                width=100, height=28,
                                 fg_color=COR_CARD, hover_color=COR_ACENTO_LIGHT,
                                 text_color=COR_TEXTO, border_width=1,
                                 border_color=COR_BORDA2,
                                 command=lambda v=val: self._sel_cartao(v))
-            btn.grid(row=r, column=c, padx=2, pady=2, sticky="ew")
-            grade_c.grid_columnconfigure(c, weight=1)
+            btn.grid(row=r, column=c, padx=2, pady=2)
             self.btns_cartao[val] = btn
-        
         self.frame_parcelas = ctk.CTkFrame(self.frame_cartao, fg_color="transparent")
-        self.frame_parcelas.pack(fill="x", padx=8, pady=(4,8))
-        self.frame_parcelas.pack_forget()  # Oculto inicialmente
-        
         ctk.CTkLabel(self.frame_parcelas, text="Parcelas:",
-                     font=FONTE_SMALL, text_color=COR_ACENTO).pack(side="left", padx=(0,4))
+                     font=FONTE_SMALL, text_color=COR_ACENTO).pack(side="left", padx=(8,4))
         self.cmb_parcelas = ctk.CTkComboBox(
             self.frame_parcelas,
             values=["2x","3x","4x","5x","6x","7x","8x","9x","10x","11x","12x"],
             font=FONTE_LABEL, width=70,
             fg_color=COR_CARD, border_color=COR_BORDA2, text_color=COR_TEXTO)
         self.cmb_parcelas.set("2x")
-        self.cmb_parcelas.pack(side="left", padx=4)
+        self.cmb_parcelas.pack(side="left", padx=4, pady=4)
 
-        ctk.CTkLabel(scroll_main, text="Valor recebido (R$):", font=FONTE_SMALL,
+        ctk.CTkLabel(self, text="Valor recebido (R$):", font=FONTE_SMALL,
                      text_color=COR_TEXTO_SUB).pack(anchor="w", padx=16, pady=(8,2))
         self.ent_valor = ctk.CTkEntry(
-            scroll_main, font=("Georgia", 22), height=42, justify="center",
+            self, font=("Georgia", 22), height=42, justify="center",
             fg_color=COR_CARD2, border_color=COR_ACENTO,
             border_width=2, text_color=COR_TEXTO)
         self.ent_valor.pack(fill="x", padx=16, pady=(0,4))
@@ -1098,7 +1036,7 @@ class DialogoReceber(ctk.CTkToplevel):
         self.ent_valor.focus_set()
 
         # Botões rápidos de valor
-        grade_v = ctk.CTkFrame(scroll_main, fg_color="transparent")
+        grade_v = ctk.CTkFrame(self, fg_color="transparent")
         grade_v.pack(fill="x", padx=16, pady=(0,4))
         for i, v in enumerate([5, 10, 20, 50, 100, 200]):
             grade_v.grid_columnconfigure(i, weight=1)
@@ -1111,7 +1049,7 @@ class DialogoReceber(ctk.CTkToplevel):
                           ).grid(row=0, column=i, padx=1, sticky="ew")
 
         # Troco — destaque verde
-        self.frame_troco = ctk.CTkFrame(scroll_main, fg_color=COR_SUCESSO, corner_radius=8)
+        self.frame_troco = ctk.CTkFrame(self, fg_color=COR_SUCESSO, corner_radius=8)
         self.frame_troco.pack(fill="x", padx=16, pady=(0,4))
         f_troco_inner = ctk.CTkFrame(self.frame_troco, fg_color="transparent")
         f_troco_inner.pack(fill="x", padx=12, pady=8)
@@ -1122,13 +1060,13 @@ class DialogoReceber(ctk.CTkToplevel):
             font=("Georgia", 22, "bold"), text_color="white")
         self.lbl_troco.pack(side="right")
 
-        ctk.CTkButton(scroll_main, text="Valor Exato",
+        ctk.CTkButton(self, text="Valor Exato",
                       font=FONTE_SMALL, height=28,
                       fg_color=COR_ACENTO_LIGHT, hover_color=COR_BORDA,
                       text_color=COR_ACENTO, corner_radius=6,
                       command=self._valor_exato).pack(fill="x", padx=16, pady=(0,4))
 
-        f_misto = ctk.CTkFrame(scroll_main, fg_color=COR_CARD2, corner_radius=8)
+        f_misto = ctk.CTkFrame(self, fg_color=COR_CARD2, corner_radius=8)
         f_misto.pack(fill="x", padx=16, pady=(0,4))
         ctk.CTkButton(f_misto, text="+ Adicionar pagamento parcial",
                       font=FONTE_SMALL, height=28,
@@ -1138,12 +1076,10 @@ class DialogoReceber(ctk.CTkToplevel):
         self.lbl_pgtos = ctk.CTkLabel(f_misto, text="",
                                        font=FONTE_SMALL, text_color=COR_SUCESSO)
         self.lbl_pgtos.pack(anchor="w", padx=8)
-        self.lbl_pgtos.pack_forget()
         self.frame_lista_pgtos = ctk.CTkFrame(f_misto, fg_color="transparent")
         self.frame_lista_pgtos.pack(fill="x", padx=4, pady=(0,4))
-        self.frame_lista_pgtos.pack_forget()
 
-        fc = ctk.CTkFrame(scroll_main, fg_color="transparent")
+        fc = ctk.CTkFrame(self, fg_color="transparent")
         fc.pack(fill="x", padx=16, pady=(0,4))
         ctk.CTkLabel(fc, text="CPF:", font=FONTE_SMALL,
                      text_color=COR_TEXTO_SUB).pack(side="left")
@@ -1186,11 +1122,7 @@ class DialogoReceber(ctk.CTkToplevel):
                         border_color=cores.get(k, COR_ACENTO) if sel else COR_BORDA,
                         border_width=2 if sel else 1)
         if forma == "CARTAO":
-            # Mostra o frame de cartão
             self.frame_cartao.pack(fill="x", padx=16, pady=(0,4))
-            # Pré-seleciona Débito automaticamente
-            if not self.subcategoria_cartao:
-                self.after(50, lambda: self._sel_cartao("DEBITO"))
         else:
             self.frame_cartao.pack_forget()
             self.frame_parcelas.pack_forget()
@@ -1207,7 +1139,7 @@ class DialogoReceber(ctk.CTkToplevel):
                           border_width=2 if sel else 1,
                           text_color=COR_ACENTO if sel else COR_TEXTO)
         if tipo == "CREDITO PARCELADO":
-            self.frame_parcelas.pack(fill="x", padx=8, pady=(4,8))
+            self.frame_parcelas.pack(pady=(0,4))
         else:
             self.frame_parcelas.pack_forget()
 
@@ -1260,13 +1192,8 @@ class DialogoReceber(ctk.CTkToplevel):
             w.destroy()
         total_pgtos = sum(p["valor"] for p in self.pagamentos)
         if not self.pagamentos:
-            self.lbl_pgtos.pack_forget()
-            self.frame_lista_pgtos.pack_forget()
+            self.lbl_pgtos.configure(text="")
             return
-        if not self.lbl_pgtos.winfo_ismapped():
-            self.lbl_pgtos.pack(anchor="w", padx=8, pady=(4,0))
-        if not self.frame_lista_pgtos.winfo_ismapped():
-            self.frame_lista_pgtos.pack(fill="x", padx=4, pady=(0,4))
         self.lbl_pgtos.configure(
             text="Lancados: R$ " + str(round(total_pgtos,2)) + " | Falta: R$ " + str(max(0,round(self.total-total_pgtos,2))))
         for i, p in enumerate(self.pagamentos):

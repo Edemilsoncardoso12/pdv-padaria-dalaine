@@ -273,7 +273,7 @@ if __name__ == "__main__":
         instalar_tratamento_global(app)
         inicializar_auditoria()
         verificar_hash_banco()
-        log_info(f"Sistema iniciado — Versão 2.0.0")
+        log_info(f"Sistema iniciado — Versão 3.1.3")
     except Exception:
         pass
 
@@ -290,7 +290,7 @@ if __name__ == "__main__":
 
     # ── 6. Timeout de sessão (15 minutos) ─────────────────────────────────────
     try:
-        sessao = GerenciadorSessao(app, minutos=15)
+        sessao = GerenciadorSessao(app, minutos=60)
         app.bind_all("<Button-1>", lambda e: sessao.registrar_atividade())
         app.bind_all("<Key>",      lambda e: sessao.registrar_atividade())
         app.bind_all("<Motion>",   lambda e: sessao.registrar_atividade())
