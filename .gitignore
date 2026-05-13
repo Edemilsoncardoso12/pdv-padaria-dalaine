@@ -18,3 +18,10 @@ cupons/
 backups/
 *.ico
 .env
+ 
+# EXE gerado 
+PDV_Padaria_DaLaine.exe 
+dist/ 
+ 
+# Arquivos de teste 
+teste_seguranca.py 
