@@ -35,7 +35,7 @@ class BuscaProdutoWidget:
             return "break"
 
         texto = self.entry.get().strip()
-        if len(texto) < 2:
+        if len(texto) < 1:
             self._fechar()
             return
 
@@ -57,7 +57,6 @@ class BuscaProdutoWidget:
         self.win    = None
         self.labels = []
 
-        # Verificar se entry ainda existe
         try:
             if not self.entry.winfo_exists():
                 return
@@ -99,7 +98,6 @@ class BuscaProdutoWidget:
                            fg="#1A1A2E", bg=bg,
                            anchor="w", cursor="hand2")
             lbl.pack(fill="x", pady=1)
-            # SÓ clique — sem hover
             lbl.bind("<Button-1>", lambda e, pp=p: self._selecionar(pp))
             self.labels.append((lbl, bg))
 
@@ -133,7 +131,6 @@ class BuscaProdutoWidget:
         if not texto:
             return "break"
 
-        # ── Código de balança EAN-13 começando com 2 ──
         if len(texto) == 13 and texto.startswith("2") and texto.isdigit():
             self._fechar()
             self.entry.delete(0, "end")
@@ -157,20 +154,16 @@ class BuscaProdutoWidget:
         return "break"
 
     def _abrir_cadastro(self, codigo):
-        """Abre o formulário de cadastro de produto com o código já preenchido"""
         try:
-            # Importa dentro da função para evitar import circular
             from telas.produtos import FormularioProduto
 
-            # Callback: após salvar, tenta adicionar o produto recém-cadastrado na venda
             def pos_cadastro():
                 from banco.database import buscar_produto_por_codigo
                 prod = buscar_produto_por_codigo(codigo)
                 if prod:
                     self.entry.delete(0, "end")
-                    self.callback(prod)   # ← adiciona na venda automaticamente
+                    self.callback(prod)
                 else:
-                    # Código pode ter sido alterado no formulário — apenas limpa
                     self.entry.delete(0, "end")
                 try:
                     self.entry.focus_set()
@@ -180,14 +173,11 @@ class BuscaProdutoWidget:
             root = self.entry.winfo_toplevel()
             form = FormularioProduto(root, None, pos_cadastro)
 
-            # Pré-preenche o código de barras se parecer um código (só dígitos)
             if codigo.isdigit():
                 form.ent_scan.delete(0, "end")
                 form.ent_scan.insert(0, codigo)
-                # Dispara a busca automaticamente para confirmar que não existe
                 form.after(200, form._on_scan)
             else:
-                # Era uma busca por nome — apenas abre o formulário limpo
                 form.campos["nome"].delete(0, "end")
                 form.campos["nome"].insert(0, codigo)
                 form.campos["nome"].focus_set()
@@ -209,7 +199,7 @@ class BuscaProdutoWidget:
         self._fechar()
         self.entry.delete(0, "end")
         self.entry.focus_set()
-        self.callback(produto)   # ← produto existe: vai direto para a venda
+        self.callback(produto)
 
     def _fechar(self):
         win = self.win
