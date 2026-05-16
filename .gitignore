@@ -26,3 +26,4 @@ dist/
 # Arquivos de teste 
 teste_seguranca.py 
 banco/.db_hash 
+banco/.db_hash 
