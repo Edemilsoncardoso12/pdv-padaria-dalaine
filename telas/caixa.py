@@ -816,25 +816,16 @@ class TelaCaixa(ctk.CTkFrame):
 
     def _receber(self):
         if not self.itens: messagebox.showwarning("Venda vazia","Adicione produtos."); return
-        # ── Bloquear venda sem caixa aberto ──────────────────────────────────
         if not self.caixa_id:
             resp = messagebox.askyesno(
                 "⚠️ Caixa não aberto",
-                "Nenhum caixa aberto!\n\n"
-                "Todas as vendas realizadas sem caixa aberto\n"
-                "NÃO aparecem no fechamento.\n\n"
-                "Deseja abrir o caixa agora?",
-                icon="warning"
-            )
-            if resp:
-                self._dialogo_abrir_caixa()
+                "Nenhum caixa aberto!\n\nTodas as vendas realizadas sem caixa aberto\n"
+                "NÃO aparecem no fechamento.\n\nDeseja abrir o caixa agora?",
+                icon="warning")
+            if resp: self._dialogo_abrir_caixa()
             if not self.caixa_id:
-                messagebox.showwarning(
-                    "Venda bloqueada",
-                    "Abra o caixa antes de realizar vendas."
-                )
+                messagebox.showwarning("Venda bloqueada","Abra o caixa antes de realizar vendas.")
                 return
-        # ─────────────────────────────────────────────────────────────────────
         subtotal=sum(i["total_item"] for i in self.itens); total=max(0,subtotal-self.desconto_global)
         modo=self.cmb_modo.get()
         if modo=="ORÇAMENTO": self._salvar_orcamento(total); return
@@ -973,7 +964,8 @@ class DialogoReceber(ctk.CTkToplevel):
         ctk.CTkLabel(self, text="Forma:", font=FONTE_SMALL,
                      text_color=COR_TEXTO_SUB).pack(anchor="w", padx=16, pady=(8,2))
         self.btns_forma = {}
-        grade_f = ctk.CTkFrame(self, fg_color="transparent")
+        self.grade_f = ctk.CTkFrame(self, fg_color="transparent")
+        grade_f = self.grade_f
         grade_f.pack(fill="x", padx=16)
         formas = [("Dinheiro","DINHEIRO"),("PIX","PIX"),
                   ("Cartao","CARTAO"),("Fiado","FIADO")]
@@ -1002,11 +994,11 @@ class DialogoReceber(ctk.CTkToplevel):
                  ("Vale Alim","VALE ALIMENTACAO")]
         for i, (label, val) in enumerate(tipos):
             r, c = divmod(i, 2)
-            btn = ctk.CTkButton(grade_c, text=label, font=("Courier New",10),
-                                width=100, height=28,
-                                fg_color=COR_CARD, hover_color=COR_ACENTO_LIGHT,
-                                text_color=COR_TEXTO, border_width=1,
-                                border_color=COR_BORDA2,
+            btn = ctk.CTkButton(grade_c, text=label, font=("Courier New",11,"bold"),
+                                width=200, height=50,
+                                fg_color=COR_ACENTO, hover_color=COR_ACENTO2,
+                                text_color="white", border_width=0,
+                                corner_radius=8,
                                 command=lambda v=val: self._sel_cartao(v))
             btn.grid(row=r, column=c, padx=2, pady=2)
             self.btns_cartao[val] = btn
@@ -1120,7 +1112,8 @@ class DialogoReceber(ctk.CTkToplevel):
                         border_color=cores.get(k, COR_ACENTO) if sel else COR_BORDA,
                         border_width=2 if sel else 1)
         if forma == "CARTAO":
-            self.frame_cartao.pack(fill="x", padx=16, pady=(0,4))
+            self.frame_cartao.pack_forget()
+            self.frame_cartao.pack(fill="x", padx=16, pady=(0,4), after=self.grade_f)
         else:
             self.frame_cartao.pack_forget()
             self.frame_parcelas.pack_forget()
