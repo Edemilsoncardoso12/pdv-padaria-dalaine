@@ -1,6 +1,6 @@
 {
-    "versao": "3.1.6",
-    "data": "2026-05-16",
-    "notas": "atualização",
+    "versao": "3.1.7",
+    "data": "2026-06-12",
+    "notas": "Relatórios mais rápidos sem gráficos; boletos pagos aparecem no financeiro",
     "obrigatorio": true
 }

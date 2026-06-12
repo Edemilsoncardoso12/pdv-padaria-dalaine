@@ -66,6 +66,21 @@ def _configurar_tab_scroll(campos, scroll_frame=None):
 
 def inicializar_recebimento():
     conn = get_conn()
+    # Garante que lancamentos existe (usada ao dar baixa em boletos)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS lancamentos (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo            TEXT,
+            categoria       TEXT,
+            descricao       TEXT,
+            valor           REAL,
+            data            TEXT DEFAULT (date('now','localtime')),
+            forma_pagamento TEXT DEFAULT 'DINHEIRO',
+            status          TEXT DEFAULT 'PAGO',
+            observacao      TEXT DEFAULT '',
+            criado_em       TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS recebimentos (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -163,10 +178,42 @@ def boletos_vencendo(dias=7):
 
 def dar_baixa_boleto(boleto_id):
     conn = get_conn()
-    conn.execute("""UPDATE boletos_recebimento
-                    SET status='PAGO', data_pagamento=date('now','localtime')
-                    WHERE id=?""", (boleto_id,))
-    conn.commit(); conn.close()
+
+    # Busca dados do boleto + fornecedor para montar descrição
+    b = conn.execute("""
+        SELECT b.*, r.fornecedor, r.numero_nota
+        FROM boletos_recebimento b
+        JOIN recebimentos r ON r.id = b.recebimento_id
+        WHERE b.id = ?
+    """, (boleto_id,)).fetchone()
+
+    if not b:
+        conn.close()
+        return
+
+    # Marca boleto como pago
+    conn.execute("""
+        UPDATE boletos_recebimento
+        SET status='PAGO', data_pagamento=date('now','localtime')
+        WHERE id=?
+    """, (boleto_id,))
+
+    # Monta descrição do lançamento
+    desc = f"Boleto: {b['fornecedor']}"
+    if b['numero_nota']:
+        desc += f" NF {b['numero_nota']}"
+    if b['descricao']:
+        desc += f" — {b['descricao']}"
+
+    # Lança despesa automaticamente no financeiro
+    conn.execute("""
+        INSERT INTO lancamentos
+            (tipo, categoria, descricao, valor, data, forma_pagamento, status, observacao)
+        VALUES ('DESPESA', 'Fornecedores', ?, ?, date('now','localtime'), 'BOLETO', 'PAGO', ?)
+    """, (desc[:120], b['valor'], f"Vencimento original: {b['vencimento']}"))
+
+    conn.commit()
+    conn.close()
 
 
 def salvar_recebimento(fornecedor, numero_nota, chave_nfe,
