@@ -617,7 +617,7 @@ class TelaCaixa(ctk.CTkFrame):
             # Adiciona na venda com valor já calculado pela balança
             self.itens.append({
                 "produto_id":     prod["id"],
-                "nome_produto":   f"{prod['nome']} ({peso_kg:.3f}kg)",
+                "nome_produto":   prod['nome'],
                 "codigo_barras":  codigo,
                 "unidade":        "KG",
                 "quantidade":     peso_kg,
