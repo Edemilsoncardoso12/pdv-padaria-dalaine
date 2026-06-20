@@ -10,7 +10,7 @@ class TelaCaixa(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master, fg_color=COR_FUNDO, corner_radius=0)
         self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=0, minsize=300)
+        self.grid_columnconfigure(1, weight=0, minsize=230)
         self.grid_rowconfigure(1, weight=1)
         self.itens=[]; self.caixa_id=None; self.desconto_global=0.0
         self.cliente_venda=None; self.vendedor_atual="Operador"
@@ -151,18 +151,58 @@ class TelaCaixa(ctk.CTkFrame):
         frame=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=12,border_width=1,border_color=COR_BORDA)
         frame.grid(row=1,column=0,padx=(16,8),pady=12,sticky="nsew")
         frame.grid_rowconfigure(1,weight=1); frame.grid_columnconfigure(0,weight=1)
-        cols=["#","Descrição","Cód.Barras","Qtde","Peso","Unit.","Desc","Total","",""]
-        larguras=[35, 260, 150, 55, 65, 80, 75, 90, 36, 0]
-        cab=ctk.CTkFrame(frame,fg_color=COR_ACENTO_LIGHT,corner_radius=8,height=48)
+        self._tab_cols=["#","Descrição","Cód.Barras","Qtde","Peso","Unit.","Desc","Total",""]
+        # Pesos proporcionais (não pixels fixos) — a coluna se adapta a qualquer largura de tela
+        self._tab_pesos=[3, 26, 14, 6, 7, 9, 8, 10, 4]
+        self._tab_min  =[24, 75, 55, 30, 32, 48, 42, 55, 28]  # largura mínima absoluta — calibrada para caber até em telas pequenas (~800px)
+        self._tab_anchors=["center","w","w","e","e","e","e","e","center"]
+
+        cab=ctk.CTkFrame(frame,fg_color=COR_ACENTO_LIGHT,corner_radius=8,height=44)
         cab.grid(row=0,column=0,sticky="ew",padx=8,pady=(8,0)); cab.grid_propagate(False)
-        for i,(col,larg) in enumerate(zip(cols,larguras)):
-            cab.grid_columnconfigure(i,minsize=larg,weight=(1 if i==9 else 0))
-            if col:
-                ctk.CTkLabel(cab,text=col,font=("Courier New",13,"bold"),text_color=COR_ACENTO,width=larg,anchor="w").grid(row=0,column=i,padx=4,pady=8,sticky="w")
+        self._cab_labels=[]
+        for i,col in enumerate(self._tab_cols):
+            anc = self._tab_anchors[i]
+            lbl=ctk.CTkLabel(cab,text=col,font=("Courier New",12,"bold"),text_color=COR_ACENTO,anchor=anc,
+                              justify=("center" if anc=="center" else ("right" if anc=="e" else "left")),
+                              width=10,height=44)
+            lbl.place(x=0,y=0)
+            self._cab_labels.append(lbl)
+        self._cab_frame=cab
+
         self.scroll_itens=ctk.CTkScrollableFrame(frame,fg_color="transparent")
         self.scroll_itens.grid(row=1,column=0,sticky="nsew",padx=8,pady=8)
         self.scroll_itens.grid_columnconfigure(0,weight=1)
         self._linha_vazia()
+
+        # Recalcula larguras sempre que a janela for redimensionada
+        cab.bind("<Configure>", lambda e: self._recalcular_larguras_tabela())
+        self.after(150, self._recalcular_larguras_tabela)
+
+    def _calcular_larguras_px(self, largura_total):
+        """Converte pesos proporcionais em larguras reais (px), respeitando mínimos."""
+        soma_pesos = sum(self._tab_pesos)
+        soma_min   = sum(self._tab_min)
+        extra      = max(0, largura_total - soma_min)
+        larguras = []
+        for peso, minimo in zip(self._tab_pesos, self._tab_min):
+            larguras.append(int(minimo + extra * (peso / soma_pesos)))
+        return larguras
+
+    def _recalcular_larguras_tabela(self):
+        largura_total = self._cab_frame.winfo_width()
+        if largura_total <= 1:
+            return
+        larguras = self._calcular_larguras_px(largura_total - 16)  # margem interna
+        self._larguras_atuais = larguras
+        x = 4
+        for lbl, larg, anc in zip(self._cab_labels, larguras, self._tab_anchors):
+            pad_r = 8 if anc=="e" else 0
+            lbl.configure(width=larg-pad_r, height=44)
+            lbl.place(x=x, y=0)
+            x += larg
+        # Reaplica nas linhas já desenhadas
+        if self.itens:
+            self._redesenhar_itens()
 
     def _linha_vazia(self):
         ctk.CTkLabel(self.scroll_itens,text="Nenhum item adicionado.\nEscaneie ou pesquise um produto.",font=FONTE_LABEL,text_color=COR_TEXTO_SUB,justify="center").grid(row=0,column=0,pady=60)
@@ -171,26 +211,37 @@ class TelaCaixa(ctk.CTkFrame):
         for w in self.scroll_itens.winfo_children(): w.destroy()
         if not self.itens: self._linha_vazia(); self._atualizar_totais(); return
         self._item_selecionado = getattr(self, "_item_selecionado", None)
-        larguras=[35, 260, 150, 55, 65, 80, 75, 90, 36, 0]
+        larguras = getattr(self, "_larguras_atuais", None)
+        if not larguras:
+            larguras = self._calcular_larguras_px(self._cab_frame.winfo_width() - 16 or 900)
+        largura_total_linha = sum(larguras) + 40
         for idx,item in enumerate(self.itens):
             selecionado = (self._item_selecionado == idx)
             cor_bg = "#D1E8FF" if selecionado else (COR_LINHA_PAR if idx%2==0 else COR_CARD)
-            row_f=ctk.CTkFrame(self.scroll_itens,fg_color=cor_bg,corner_radius=6,height=52)
+            row_f=ctk.CTkFrame(self.scroll_itens,fg_color=cor_bg,corner_radius=6,height=48)
             row_f.grid(row=idx,column=0,sticky="ew",pady=1); row_f.grid_propagate(False)
-            for i,larg in enumerate(larguras): row_f.grid_columnconfigure(i,minsize=larg,weight=(1 if i==9 else 0))
             peso_txt=f'{item.get("peso",0):.3f}' if item.get("peso",0)>0 else "—"
             dados=[str(idx+1),item["nome_produto"][:55],item["codigo_barras"] or "",
                    f'{item["quantidade"]:.3f}'.rstrip("0").rstrip("."),peso_txt,
                    f'R$ {item["preco_unitario"]:.2f}',f'R$ {item.get("desconto",0):.2f}',
                    f'R$ {item["total_item"]:.2f}']
             cores=[COR_TEXTO_SUB,COR_TEXTO,COR_TEXTO_SUB,COR_ACENTO,COR_TEXTO_SUB,COR_TEXTO,COR_PERIGO,COR_SUCESSO]
+            # Mesmo array de alinhamento do cabeçalho — texto à esquerda, números à direita, "#" centralizado
+            anchors=self._tab_anchors
+            x = 4
             for i,(val,cor) in enumerate(zip(dados,cores)):
-                lbl = ctk.CTkLabel(row_f,text=val,font=("Courier New",13,"bold"),text_color=cor,width=larguras[i],anchor="w")
-                lbl.grid(row=0,column=i,padx=4,sticky="w")
+                larg = larguras[i]
+                pad_r = 8 if anchors[i]=="e" else 0
+                pad_l = 0 if anchors[i]!="center" else 0
+                lbl = ctk.CTkLabel(row_f,text=val,font=("Courier New",12,"bold"),text_color=cor,anchor=anchors[i],
+                                    justify=("center" if anchors[i]=="center" else ("right" if anchors[i]=="e" else "left")),
+                                    width=larg-pad_r,height=48)
+                lbl.place(x=x,y=0)
                 lbl.bind("<Button-1>", lambda e, i=idx: self._selecionar_item(i))
+                x += larg
             row_f.bind("<Button-1>", lambda e, i=idx: self._selecionar_item(i))
             i_cap=idx
-            ctk.CTkButton(row_f,text="✕",width=28,height=24,font=("Arial",10),fg_color=COR_PERIGO,hover_color=COR_PERIGO2,text_color="white",corner_radius=4,command=lambda i=i_cap:self._remover_item(i)).grid(row=0,column=8,padx=4)
+            ctk.CTkButton(row_f,text="✕",width=26,height=22,font=("Arial",10),fg_color=COR_PERIGO,hover_color=COR_PERIGO2,text_color="white",corner_radius=4,command=lambda i=i_cap:self._remover_item(i)).place(x=x+4,y=12)
         self._atualizar_totais()
 
     def _selecionar_item(self, idx):
@@ -219,7 +270,7 @@ class TelaCaixa(ctk.CTkFrame):
             self._redesenhar_itens()
 
     def _build_painel_direito(self):
-        painel=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=12,border_width=1,border_color=COR_BORDA,width=260)
+        painel=ctk.CTkFrame(self,fg_color=COR_CARD,corner_radius=12,border_width=1,border_color=COR_BORDA,width=230)
         painel.grid(row=1,column=1,padx=(8,16),pady=12,sticky="nsew"); painel.grid_columnconfigure(0,weight=1)
         painel.grid_propagate(False)
         ctk.CTkLabel(painel,text="RESUMO DA VENDA",font=("Courier New",10,"bold"),text_color=COR_ACENTO).pack(pady=(10,4))

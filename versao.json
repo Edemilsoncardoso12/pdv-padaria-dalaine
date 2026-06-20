@@ -1,6 +1,6 @@
 {
-    "versao": "3.1.8",
+    "versao": "3.1.9",
     "data": "2026-06-20",
-    "notas": "Correções de layout no caixa: tabela alinhada, colunas corrigidas, painel de pagamento sem cortar botão de confirmar",
+    "notas": "Tabela responsiva, valores alinhados, painel de resumo com largura controlada",
     "obrigatorio": true
 }
